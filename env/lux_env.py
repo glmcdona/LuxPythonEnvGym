@@ -44,7 +44,7 @@ class LuxPerUnitEnvironment(gym.Env):
         self._take_action(action)
         self.current_step += 1
 
-        # Calculate reword for this step
+        # Calculate reward for this step
         reward = self._reward()
 
         # TODO: Logic for when the game ends
