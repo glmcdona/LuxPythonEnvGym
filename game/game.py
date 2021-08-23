@@ -6,6 +6,55 @@ INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 
 # TODO: Add all the game logic here!
 class Game:
+    # Mirrored Game constant enums. All the available agent actions with specifications as to what they do and restrictions.
+    class ACTIONS:
+        #
+        # Formatted as `m unitid direction`. unitid should be valid and should have empty space in that direction. moves
+        # unit with id unitid in the direction
+        #
+        MOVE = 'm',
+        #
+        # Formatted as `r x y`. (x,y) should be an owned city tile, the city tile is commanded to research for
+        # the next X turns
+        #/
+        RESEARCH = 'r',
+        # Formatted as `bw x y`. (x,y) should be an owned city tile, where worker is to be built #/
+        BUILD_WORKER = 'bw',
+        # Formatted as `bc x y`. (x,y) should be an owned city tile, where the cart is to be built #/
+        BUILD_CART = 'bc',
+        #
+        # Formatted as `bcity unitid`. builds city at unitid's pos, unitid should be
+        # friendly owned unit that is a worker
+        #/
+        BUILD_CITY = 'bcity',
+        #
+        # Formatted as `t source_unitid destination_unitid resource_type amount`. Both units in transfer should be
+        # adjacent. If command valid, it will transfer as much as possible with a max of the amount specified
+        #/
+        TRANSFER = 't',
+
+        # formatted as `p unitid`. Unit with the given unitid must be owned and pillages the tile they are on #/
+        PILLAGE = 'p',
+
+        # formatted as dc <x> <y> #/
+        DEBUG_ANNOTATE_CIRCLE = 'dc',
+        # formatted as dx <x> <y> #/
+        DEBUG_ANNOTATE_X = 'dx',
+        # formatted as dl <x1> <y1> <x2> <y2> #/
+        DEBUG_ANNOTATE_LINE = 'dl',
+        # formatted as dt <x> <y> <message> <fontsize> #/
+        DEBUG_ANNOTATE_TEXT = 'dt',
+        # formatted as dst <message> #/
+        DEBUG_ANNOTATE_SIDETEXT = 'dst'
+
+    class DIRECTIONS:
+        NORTH = 'n',
+        EAST = 'e',
+        SOUTH = 's',
+        WEST = 'w',
+        CENTER = 'c',
+
+
     def __init__(self, config = {"width":20, "height": 20}):
         # Initializations from src/Game/index.ts -> Game()
         self.global_cityid_count = 0
