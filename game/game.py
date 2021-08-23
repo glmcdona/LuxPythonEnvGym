@@ -6,20 +6,7 @@ INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 
 # TODO: Add all the game logic here!
 class Game:
-    def _initialize(self, messages):
-        """
-        initialize state
-        """
-        self.id = int(messages[0])
-        self.turn = -1
-
-        # get some other necessary initial input
-        mapInfo = messages[1].split(" ")
-        self.map_width = int(mapInfo[0])
-        self.map_height = int(mapInfo[1])
-        self.map = GameMap(self, self.map_width, self.map_height)
-        self.players = [Player(0), Player(1)]
-
+    def __init__(self, config = {"width":20, "height": 20}):
         # Initializations from src/Game/index.ts -> Game()
         self.global_cityid_count = 0
         self.global_unitid_count = 0
@@ -77,6 +64,7 @@ class Game:
                 },
             }
         }
+        self.map = GameMap(self, config["width"], config["height"])
 
     def _gen_initial_accumulated_action_stats(self):
         """
