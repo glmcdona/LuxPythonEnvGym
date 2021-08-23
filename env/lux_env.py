@@ -4,6 +4,7 @@ import gym
 from gym import spaces
 import numpy as np
 
+
 N_DISCRETE_ACTIONS = 10
 
 class LuxPerUnitEnvironment(gym.Env):
@@ -33,6 +34,7 @@ class LuxPerUnitEnvironment(gym.Env):
 
     def _take_action(self, action):
         # TODO: Apply the action on the state of the game
+        #  eg. Game.QueueApplyAction(action) # To apply all actions in parallel.
         pass
 
     def _reward(self):
