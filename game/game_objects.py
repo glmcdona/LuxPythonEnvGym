@@ -82,6 +82,10 @@ class Cargo:
 
 
 class Unit:
+    class TEAM:
+        A = 0
+        B = 1
+    
     def __init__(self, teamid, u_type, unitid, x, y, cooldown, wood, coal, uranium):
         self.pos = Position(x, y)
         self.team = teamid
