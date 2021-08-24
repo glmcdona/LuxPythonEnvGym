@@ -1,6 +1,6 @@
 from .constants import Constants
 from .game_map import GameMap
-from .game_objects import Player, Unit, City, CityTile
+from .game_objects import Player, Unit, City, CityTile, Worker
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 
@@ -149,24 +149,44 @@ class Game:
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.workerUnitCapReached()
         """
-        # TODO: Implement
-        pass
+        team_city_count = 0
+        for city in self.cities:
+            if city.team == team:
+                team_city_count += 1
+        
+        return self.state["teamStates"][team]["units"]["size"] + offset >= team_city_count
     
     def cart_unit_cap_reached(self, team, offset = 0):
         """
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.cartUnitCapReached()
         """
-        # TODO: Implement
-        pass
+        return self.worker_unit_cap_reached(team, offset)
     
     def spawn_worker(self, team, x, y, unitid = None):
         """
         Spawns new worker
         Implements src/Game/index.ts -> Game.spawnWorker()
         """
-        # TODO: Implement
-        pass
+        cell = self.map.get_cell(x, y)
+        unit = Worker(
+            x,
+            y,
+            team,
+            self.configs,
+            self.global_unitid_count + 1
+        )
+
+        if unitid:
+            unit.id = unitid
+        else:
+            self.global_unitid_count += 1
+        
+        cell.units.set(unit.id, unit)
+
+        self.state.teamStates[team].units.set(unit.id, unit)
+        self.stats.teamStats[team].workersBuilt += 1
+        return unit
 
     def spawn_cart(self, team, x, y, unitid = None):
         """

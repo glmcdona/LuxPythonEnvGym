@@ -3,6 +3,7 @@ from typing import Dict
 from .constants import Constants
 from .game_map import Position
 from .game_constants import GAME_CONSTANTS
+from.actions import *
 
 UNIT_TYPES = Constants.UNIT_TYPES
 
@@ -156,3 +157,61 @@ class Unit:
         # TODO: Implement this action effect!
         return "p {}".format(self.id)
 
+
+class Worker(Unit):
+    """
+    Worker class. Mirrors /src/Unit/index.ts -> Worker()
+    """
+    def __init__(self, x, y, team, configs, idcount):
+        super().__init__(x, y, Unit.Type.WORKER, team, configs, idcount)
+    
+    def get_light_upkeep(self):
+        return self.configs.parameters.LIGHT_UPKEEP.WORKER
+    
+    def can_move(self):
+        return self.can_act()
+    
+    def expend_resources_for_city(self):
+        # use wood, then coal, then uranium for building
+        spentResources = 0
+        for rtype in ["wood", "coal", "uranium"]:
+            if (spentResources + self.cargo[rtype] > self.configs.parameters.CITY_BUILD_COST):
+                rtypeSpent = self.configs.parameters.CITY_BUILD_COST - spentResources
+                self.cargo[rtype] -= rtypeSpent
+                break
+            else:
+                spentResources += self.cargo[rtype]
+                self.cargo[rtype] = 0
+    
+    def turn(self, game):
+        cell = game.map.get_cell_by_pos(self.pos)
+        isNight = game.is_night()
+        cooldownMultiplier = 2 if isNight else 1
+        
+        if self.currentActions.length == 1:
+            action = self.currentActions[0]
+            acted = True
+            if isinstance(action, MoveAction):
+                game.move_unit(action.team, action.unitid, action.direction)
+            elif isinstance(action, TransferAction):
+                game.transfer_resources(
+                    action.team,
+                    action.srcID,
+                    action.destID,
+                    action.resourceType,
+                    action.amount
+                )
+            elif isinstance(action, SpawnCityAction):
+                game.spawn_city_tile(action.team, self.pos.x, self.pos.y);
+                self.expend_resources_for_city()
+            elif isinstance(action, PillageAction):
+                cell.road = max(
+                    cell.road - self.configs.parameters.PILLAGE_RATE,
+                    self.configs.parameters.MIN_ROAD
+                )
+            else:
+                acted = False
+            
+            if acted:
+                self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.WORKER * cooldownMultiplier
+    
