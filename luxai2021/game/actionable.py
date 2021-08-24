@@ -13,15 +13,15 @@ class Actionable:
         self.currentActions = []
         self.cooldown = 0.0
     
-    def can_act(self) -> bool:
+    def canAct(self) -> bool:
         return self.cooldown < 1
     
-    def handle_turn(self, game):
+    def handleTurn(self, game):
         try:
             self.turn(game)
         finally:
             self.currentActions = []
         # reset actions to empty
 
-    def give_action(self, action):
+    def giveAction(self, action):
         self.currentActions.append(action)

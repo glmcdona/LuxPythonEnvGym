@@ -1,6 +1,7 @@
 import math
 import random
 from typing import List
+from cell import Cell
 
 from .constants import Constants
 
@@ -14,15 +15,6 @@ class Resource:
         self.type = r_type
         self.amount = amount
 
-
-class Cell:
-    def __init__(self, x, y):
-        self.pos = Position(x, y)
-        self.resource: Resource = None
-        self.citytile = None
-        self.road = 0
-    def has_resource(self):
-        return self.resource is not None and self.resource.amount > 0
 
 
 class GameMap:
@@ -39,9 +31,9 @@ class GameMap:
                 self.map[y][x] = Cell(x, y)
 
         # Initialize the units and resources on the map
-        self._generate_map()
+        self._generateMap()
         
-    def _generate_map(self):
+    def _generateMap(self):
         '''
         Generate the symmetric random map
         Mirror of /Lux-Design-2021/blob/master/src/logic.ts initialize()->generateGame()
@@ -69,24 +61,24 @@ class GameMap:
                     self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.URANIUM, 20)
 
         # Place the starting cities and workers
-        self.game.spawn_city_tile(Unit.TEAM.A, 2, 1);
-        self.game.spawn_city_tile(Unit.TEAM.B, self.width - 3, 1);
+        self.game.spawnCityTile(Unit.TEAM.A, 2, 1);
+        self.game.spawnCityTile(Unit.TEAM.B, self.width - 3, 1);
 
-        self.game.spawn_worker(Unit.TEAM.A, 2, 2);
-        self.game.spawn_worker(Unit.TEAM.B, self.width - 3, 2);
+        self.game.spawnWorker(Unit.TEAM.A, 2, 2);
+        self.game.spawnWorker(Unit.TEAM.B, self.width - 3, 2);
 
 
-    def get_cell_by_pos(self, pos) -> Cell:
+    def getCellByPos(self, pos) -> Cell:
         return self.map[pos.y][pos.x]
 
-    def get_cell(self, x, y) -> Cell:
+    def getCell(self, x, y) -> Cell:
         return self.map[y][x]
 
     def _setResource(self, r_type, x, y, amount):
         """
         do not use this function, this is for internal tracking of state
         """
-        cell = self.get_cell(x, y)
+        cell = self.getCell(x, y)
         cell.resource = Resource(r_type, amount)
 
 
@@ -98,13 +90,13 @@ class Position:
     def __sub__(self, pos) -> int:
         return abs(pos.x - self.x) + abs(pos.y - self.y)
 
-    def distance_to(self, pos):
+    def distanceTo(self, pos):
         """
         Returns Manhattan (L1/grid) distance to pos
         """
         return self - pos
 
-    def is_adjacent(self, pos):
+    def isAdjacent(self, pos):
         return (self - pos) <= 1
 
     def __eq__(self, pos) -> bool:
@@ -125,7 +117,7 @@ class Position:
         elif direction == DIRECTIONS.CENTER:
             return Position(self.x, self.y)
 
-    def direction_to(self, target_pos: 'Position') -> DIRECTIONS:
+    def directionTo(self, target_pos: 'Position') -> DIRECTIONS:
         """
         Return closest position to target_pos from this position
         """
@@ -135,11 +127,11 @@ class Position:
             DIRECTIONS.SOUTH,
             DIRECTIONS.WEST,
         ]
-        closest_dist = self.distance_to(target_pos)
+        closest_dist = self.distanceTo(target_pos)
         closest_dir = DIRECTIONS.CENTER
         for direction in check_dirs:
             newpos = self.translate(direction, 1)
-            dist = target_pos.distance_to(newpos)
+            dist = target_pos.distanceTo(newpos)
             if dist < closest_dist:
                 closest_dir = direction
                 closest_dist = dist

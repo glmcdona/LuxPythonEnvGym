@@ -57,8 +57,8 @@ class Game:
 
     def __init__(self, config = {"width":20, "height": 20}):
         # Initializations from src/Game/index.ts -> Game()
-        self.global_cityid_count = 0
-        self.global_unitid_count = 0
+        self.globalCityIDCount = 0
+        self.globalUnitIDCount = 0
         self.cities = {} # string -> City
         self.stats = {
             "teamStats": {
@@ -115,7 +115,7 @@ class Game:
         }
         self.map = GameMap(self, config["width"], config["height"])
 
-    def _gen_initial_accumulated_action_stats(self):
+    def _genInitialAccumulatedActionStats(self):
         """
         Initial stats
         Implements src/Game/index.ts -> Game._genInitialAccumulatedActionStats()
@@ -133,18 +133,18 @@ class Game:
                 },
             }
     
-    def validate_command(self, cmd, accumulated_action_stats=None):
+    def validateCommand(self, cmd, accumulatedActionStats=None):
         """
         Returns an Action object if validated. If invalid, throws MatchWarn
         Implements src/Game/index.ts -> Game.validateCommand()
         """
-        if accumulated_action_stats is None:
-            accumulated_action_stats = self._gen_initial_accumulated_action_stats()
+        if accumulatedActionStats is None:
+            accumulatedActionStats = self._genInitialAccumulatedActionStats()
         
         # TODO: Implement
         pass
 
-    def worker_unit_cap_reached(self, team, offset = 0):
+    def workerUnitCapReached(self, team, offset = 0):
         """
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.workerUnitCapReached()
@@ -156,31 +156,31 @@ class Game:
         
         return self.state["teamStates"][team]["units"]["size"] + offset >= team_city_count
     
-    def cart_unit_cap_reached(self, team, offset = 0):
+    def cartUnitCapReached(self, team, offset = 0):
         """
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.cartUnitCapReached()
         """
         return self.worker_unit_cap_reached(team, offset)
     
-    def spawn_worker(self, team, x, y, unitid = None):
+    def spawnWorker(self, team, x, y, unitid = None):
         """
         Spawns new worker
         Implements src/Game/index.ts -> Game.spawnWorker()
         """
-        cell = self.map.get_cell(x, y)
+        cell = self.map.getCell(x, y)
         unit = Worker(
             x,
             y,
             team,
             self.configs,
-            self.global_unitid_count + 1
+            self.globalUnitIDCount + 1
         )
 
         if unitid:
             unit.id = unitid
         else:
-            self.global_unitid_count += 1
+            self.globalUnitIDCount += 1
         
         cell.units.set(unit.id, unit)
 
@@ -188,32 +188,32 @@ class Game:
         self.stats["teamStates"][team]["workersBuilt"] += 1
         return unit
 
-    def spawn_cart(self, team, x, y, unitid = None):
+    def spawnCart(self, team, x, y, unitid = None):
         """
         Spawns new cart
         Implements src/Game/index.ts -> Game.spawnCart()
         """
-        cell = self.map.get_cell(x, y)
-        unit = Cart(x, y, team, self.configs, self.global_unitid_count + 1)
+        cell = self.map.getCell(x, y)
+        unit = Cart(x, y, team, self.configs, self.globalUnitIDCount + 1)
         if unitid:
             unit.id = unitid
         else:
-            self.global_unitid_count += 1
+            self.globalUnitIDCount += 1
         
         cell.units.set(unit.id, unit)
         self.state["teamStates"][team]["units"].set(unit.id, unit)
         self.stats["teamStates"][team]["cartsBuilt"] += 1
         return unit
 
-    def spawn_city_tile(self, team, x, y, cityid = None):
+    def spawnCityTile(self, team, x, y, cityid = None):
         """
         Spawns new city tile
         Implements src/Game/index.ts -> Game.spawnCityTile()
         """
-        cell = self.map.get_cell(x, y);
+        cell = self.map.getCell(x, y);
 
         # now update the cities field accordingly
-        adjCells = self.map.get_adjacent_cells(cell);
+        adjCells = self.map.getAdjacentCells(cell);
 
         cityIdsFound = set()
 
@@ -225,15 +225,15 @@ class Game:
 
         # if no adjacent city cells of same team, generate new city
         if len(adjSameTeamCityTiles) == 0:
-            city = City(team, self.configs, self.global_cityid_Count + 1)
+            city = City(team, self.configs, self.globalCityIDCount + 1)
 
             if cityid:
                 city.id = cityid
             else:
                 self.globalCityIDCount += 1
             
-            cell.set_city_tile(team, city.id)
-            city.add_city_tile(cell)
+            cell.setCityTile(team, city.id)
+            city.addCityTile(cell)
             self.cities.set(city.id, city)
             return cell.citytile
         
@@ -241,13 +241,13 @@ class Game:
             # otherwise add tile to city
             cityid = adjSameTeamCityTiles[0].citytile.cityid
             city = self.cities.get(cityid)
-            cell.set_city_tile(team, cityid)
+            cell.setCityTile(team, cityid)
 
             # update adjacency counts for bonuses
             cell.citytile.adjacentCityTiles = adjSameTeamCityTiles.length
             for cell in adjSameTeamCityTiles:
                 cell.citytile.adjacentCityTiles += 1
-            city.add_city_tile(cell)
+            city.addCityTile(cell)
 
             # update all merged cities' cells with merged cityid, move to merged city and delete old city
             for cityid in cityIdsFound:
@@ -255,14 +255,14 @@ class Game:
                     oldcity = self.cities.get(id)
                     for cell in oldcity.citycells:
                         cell.citytile.cityid = cityid
-                        city.add_city_tile(cell)
+                        city.addCityTile(cell)
                 
                 city.fuel += oldcity.fuel
                 self.cities.pop(oldcity.id)
             
             return cell.citytile
 
-    def move_unit(self, team, unitid, direction):
+    def moveUnit(self, team, unitid, direction):
         """
         Moves a unit
         Implements src/Game/index.ts -> Game.moveUnit()
@@ -270,7 +270,7 @@ class Game:
         # TODO: Implement
         pass
 
-    def handle_resource_release(self, original_cell):
+    def handleResourceRelease(self, original_cell):
         """
         For cells with resources, this will release the resource to all adjacent workers (including any unit on top)
         Implements src/Game/index.ts -> Game.handleResourceRelease()
@@ -278,7 +278,7 @@ class Game:
         # TODO: Implement
         pass
     
-    def handle_resource_deposit(self, unit):
+    def handleResourceDeposit(self, unit):
         """
         Auto deposit resources of unit to tile it is on
         Implements src/Game/index.ts -> Game.handleResourceDeposit()
@@ -286,7 +286,7 @@ class Game:
         # TODO: Implement
         pass
 
-    def get_teams_units(self, team):
+    def getTeamsUnits(self, team):
         """
         Get list of units.
         Implements src/Game/index.ts -> Game.getTeamsUnits()
@@ -294,7 +294,7 @@ class Game:
         # TODO: Implement
         pass
 
-    def get_unit(self, team, unitid):
+    def getUnit(self, team, unitid):
         """
         Get the specific unit.
         Implements src/Game/index.ts -> Game.getUnit()
@@ -302,7 +302,7 @@ class Game:
         # TODO: Implement
         pass
     
-    def transfer_resources(self, team, src_unitid, dest_unitid, resource_type, amount):
+    def transferResources(self, team, src_unitid, dest_unitid, resource_type, amount):
         """
         Transfer resouces on a given team between 2 units. This does not check adjacency requirement, but its expected
         that the 2 units are adjacent. This allows for simultaneous movement of 1 unit and transfer of another
@@ -311,7 +311,7 @@ class Game:
         # TODO: Implement
         pass
     
-    def destroy_unit(self, team, unitid):
+    def destroyUnit(self, team, unitid):
         """
         Destroys the unit with this id and team and removes from tile
         Implements src/Game/index.ts -> Game.destroyUnit()
@@ -319,7 +319,7 @@ class Game:
         # TODO: Implement
         pass
 
-    def regenerate_trees(self):
+    def regenerateTrees(self):
         """
         Regenerate trees
         Implements src/Game/index.ts -> Game.regenerateTrees()
@@ -327,7 +327,7 @@ class Game:
         # TODO: Implement
         pass
 
-    def handle_movement_actions(self, actions, match):
+    def handleMovementActions(self, actions, match):
         """
         Process given move actions and returns a pruned array of actions that can all be executed with no collisions
         Implements src/Game/index.ts -> Game.handleMovementActions()
@@ -336,7 +336,7 @@ class Game:
         pass
 
     
-    def is_night(self):
+    def isNight(self):
         """
         Is it night.
         Implements src/Game/index.ts -> Game.isNight()
@@ -345,6 +345,7 @@ class Game:
         pass
     
     
+    '''
     def _end_turn(self):
         print("D_FINISH")
 
@@ -370,3 +371,4 @@ class Game:
         """
         # TODO: Implement single step of a unit
         pass
+    '''

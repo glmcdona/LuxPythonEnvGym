@@ -19,10 +19,10 @@ class Player:
         self.cities: Dict[str, City] = {}
         self.city_tile_count = 0
     
-    def researched_coal(self) -> bool:
+    def researchedCoal(self) -> bool:
         return self.research_points >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
 
-    def researched_uranium(self) -> bool:
+    def researchedUranium(self) -> bool:
         return self.research_points >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["URANIUM"]
 
 
@@ -34,12 +34,12 @@ class City:
         self.citytiles: list[CityTile] = []
         self.light_upkeep = light_upkeep
     
-    def _add_city_tile(self, x, y, cooldown):
+    def _addCityTile(self, x, y, cooldown):
         ct = CityTile(self.team, self.cityid, x, y, cooldown)
         self.citytiles.append(ct)
         return ct
     
-    def get_light_upkeep(self):
+    def getLightUpkeep(self):
         return self.light_upkeep
 
 
@@ -49,24 +49,28 @@ class CityTile:
         self.team = teamid
         self.pos = Position(x, y)
         self.cooldown = cooldown
-    def can_act(self) -> bool:
+    
+    def canAct(self) -> bool:
         """
         Whether or not this unit can research or build
         """
         return self.cooldown < 1
+    
     def research(self) -> str:
         """
         returns command to ask this tile to research this turn
         """
         # TODO: Implement this action effect!
         return "r {} {}".format(self.pos.x, self.pos.y)
-    def build_worker(self) -> str:
+    
+    def buildWorker(self) -> str:
         """
         returns command to ask this tile to build a worker this turn
         """
         # TODO: Implement this action effect!
         return "bw {} {}".format(self.pos.x, self.pos.y)
-    def build_cart(self) -> str:
+    
+    def buildCart(self) -> str:
         """
         returns command to ask this tile to build a cart this turn
         """
@@ -104,13 +108,13 @@ class Unit(Actionable):
         self.id = "u_" + idcount
         self.cargo = Cargo()
     
-    def is_worker(self) -> bool:
+    def isWorker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
 
-    def is_cart(self) -> bool:
+    def isCart(self) -> bool:
         return self.type == UNIT_TYPES.CART
 
-    def get_cargo_space_left(self):
+    def getCargoSpaceLeft(self):
         """
         get cargo space left in this unit
         """
@@ -120,11 +124,11 @@ class Unit(Actionable):
         else:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"] - spaceused
 
-    def spend_fuel_to_survive(self):
+    def spendFuelToSurvive(self):
         """
         Implements /src/Unit/index.ts -> Unit.spendFuelToSurvive()
         """
-        fuelNeeded = self.get_light_upkeep()
+        fuelNeeded = self.getLightUpkeep()
         woodNeeded = math.ceil(
             fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD
         )
@@ -156,21 +160,22 @@ class Unit(Actionable):
 
         return fuelNeeded <= 0
     
-    def can_build(self, game_map) -> bool:
+    def canBuild(self, game_map) -> bool:
         """
         whether or not the unit can build where it is right now
         """
-        cell = game_map.get_cell_by_pos(self.pos)
-        if not cell.has_resource() and self.can_act() and (self.cargo.wood + self.cargo.coal + self.cargo.uranium) >= GAME_CONSTANTS["PARAMETERS"]["CITY_BUILD_COST"]:
+        cell = game_map.getCellByPos(self.pos)
+        if not cell.hasResource() and self.canAct() and (self.cargo.wood + self.cargo.coal + self.cargo.uranium) >= GAME_CONSTANTS["PARAMETERS"]["CITY_BUILD_COST"]:
             return True
         return False
 
-    def can_act(self) -> bool:
+    def canAct(self) -> bool:
         """
         whether or not the unit can move or not. This does not check for potential collisions into other units or enemy cities
         """
         return self.cooldown < 1
 
+    '''
     def move(self, dir) -> str:
         """
         return the command to move unit in the given direction
@@ -198,6 +203,7 @@ class Unit(Actionable):
         """
         # TODO: Implement this action effect!
         return "p {}".format(self.id)
+    '''
 
 
 class Worker(Unit):
@@ -207,13 +213,13 @@ class Worker(Unit):
     def __init__(self, x, y, team, configs, idcount):
         super().__init__(x, y, Unit.Type.WORKER, team, configs, idcount)
     
-    def get_light_upkeep(self):
+    def getLightUpkeep(self):
         return self.configs.parameters.LIGHT_UPKEEP.WORKER
     
-    def can_move(self):
-        return self.can_act()
+    def canMove(self):
+        return self.canAct()
     
-    def expend_resources_for_city(self):
+    def expendResourcesForCity(self):
         # use wood, then coal, then uranium for building
         spentResources = 0
         for rtype in ["wood", "coal", "uranium"]:
@@ -226,17 +232,17 @@ class Worker(Unit):
                 self.cargo[rtype] = 0
     
     def turn(self, game):
-        cell = game.map.get_cell_by_pos(self.pos)
-        isNight = game.is_night()
+        cell = game.map.getCellByPos(self.pos)
+        isNight = game.isNight()
         cooldownMultiplier = 2 if isNight else 1
 
         if self.currentActions.length == 1:
             action = self.currentActions[0]
             acted = True
             if isinstance(action, MoveAction):
-                game.move_unit(action.team, action.unitid, action.direction)
+                game.moveUnit(action.team, action.unitid, action.direction)
             elif isinstance(action, TransferAction):
-                game.transfer_resources(
+                game.transferResources(
                     action.team,
                     action.srcID,
                     action.destID,
@@ -244,8 +250,8 @@ class Worker(Unit):
                     action.amount
                 )
             elif isinstance(action, SpawnCityAction):
-                game.spawn_city_tile(action.team, self.pos.x, self.pos.y);
-                self.expend_resources_for_city()
+                game.spawnCityTile(action.team, self.pos.x, self.pos.y);
+                self.expendResourcesForCity()
             elif isinstance(action, PillageAction):
                 cell.road = max(
                     cell.road - self.configs.parameters.PILLAGE_RATE,
@@ -265,25 +271,25 @@ class Cart(Unit):
     def __init__(self, x, y, team, configs, idcount):
         super().__init__(x, y, Unit.Type.CART, team, configs, idcount)
     
-    def get_light_upkeep(self):
+    def getLightUpkeep(self):
         return self.configs.parameters.LIGHT_UPKEEP.CART
     
-    def can_move(self):
-        return self.can_act()
+    def canMove(self):
+        return self.canAct()
     
     def turn(self, game):
-        cell = game.map.get_cell_by_pos(self.pos)
-        isNight = game.is_night()
+        cell = game.map.getCellByPos(self.pos)
+        isNight = game.isNight()
         cooldownMultiplier = 2 if isNight else 1
         
         if self.currentActions.length == 1:
             action = self.currentActions[0]
             acted = True
             if isinstance(action, MoveAction):
-                game.move_unit(action.team, action.unitid, action.direction)
+                game.moveUnit(action.team, action.unitid, action.direction)
                 self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
             elif isinstance(action, TransferAction):
-                game.transfer_resources(
+                game.transferResources(
                     action.team,
                     action.srcID,
                     action.destID,
@@ -292,7 +298,7 @@ class Cart(Unit):
                 )
             self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
         
-        endcell = game.map.get_cell_by_pos(self.pos)
+        endcell = game.map.getCellByPos(self.pos)
 
         # auto create roads by increasing the cooldown value of the the cell unit is on currently
         if endcell.getRoad() < self.configs.parameters.MAX_ROAD:
