@@ -1,6 +1,6 @@
 from .constants import Constants
 from .game_map import GameMap
-from .game_objects import Player, Unit, City, CityTile, Worker
+from .game_objects import Player, Unit, City, CityTile, Worker, Cart
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 
@@ -184,8 +184,8 @@ class Game:
         
         cell.units.set(unit.id, unit)
 
-        self.state.teamStates[team].units.set(unit.id, unit)
-        self.stats.teamStats[team].workersBuilt += 1
+        self.state["teamStates"][team]["units"].set(unit.id, unit)
+        self.stats["teamStates"][team]["workersBuilt"] += 1
         return unit
 
     def spawn_cart(self, team, x, y, unitid = None):
@@ -193,7 +193,7 @@ class Game:
         Spawns new cart
         Implements src/Game/index.ts -> Game.spawnCart()
         """
-        cell = self.map.getCell(x, y)
+        cell = self.map.get_cell(x, y)
         unit = Cart(x, y, team, self.configs, self.global_unitid_count + 1)
         if unitid:
             unit.id = unitid
@@ -201,8 +201,8 @@ class Game:
             self.global_unitid_count += 1
         
         cell.units.set(unit.id, unit)
-        self.state.teamStates[team].units.set(unit.id, unit)
-        self.stats.teamStats[team].cartsBuilt += 1
+        self.state["teamStates"][team]["units"].set(unit.id, unit)
+        self.stats["teamStates"][team]["cartsBuilt"] += 1
         return unit
 
     def spawn_city_tile(self, team, x, y, cityid = None):
@@ -210,8 +210,57 @@ class Game:
         Spawns new city tile
         Implements src/Game/index.ts -> Game.spawnCityTile()
         """
-        # TODO: Implement
-        pass
+        cell = self.map.get_cell(x, y);
+
+        # now update the cities field accordingly
+        adjCells = self.map.get_adjacent_cells(cell);
+
+        cityIdsFound = set()
+
+        adjSameTeamCityTiles = []
+        for cell in adjCells:
+            if cell.isCityTile() and cell.citytile.team == team:
+                adjSameTeamCityTiles.append(cell)
+                cityIdsFound.add(cityid)
+
+        # if no adjacent city cells of same team, generate new city
+        if len(adjSameTeamCityTiles) == 0:
+            city = City(team, self.configs, self.global_cityid_Count + 1)
+
+            if cityid:
+                city.id = cityid
+            else:
+                self.globalCityIDCount += 1
+            
+            cell.set_city_tile(team, city.id)
+            city.add_city_tile(cell)
+            self.cities.set(city.id, city)
+            return cell.citytile
+        
+        else:
+            # otherwise add tile to city
+            cityid = adjSameTeamCityTiles[0].citytile.cityid
+            city = self.cities.get(cityid)
+            cell.set_city_tile(team, cityid)
+
+            # update adjacency counts for bonuses
+            cell.citytile.adjacentCityTiles = adjSameTeamCityTiles.length
+            for cell in adjSameTeamCityTiles:
+                cell.citytile.adjacentCityTiles += 1
+            city.add_city_tile(cell)
+
+            # update all merged cities' cells with merged cityid, move to merged city and delete old city
+            for cityid in cityIdsFound:
+                if id != cityid:
+                    oldcity = self.cities.get(id)
+                    for cell in oldcity.citycells:
+                        cell.citytile.cityid = cityid
+                        city.add_city_tile(cell)
+                
+                city.fuel += oldcity.fuel
+                self.cities.pop(oldcity.id)
+            
+            return cell.citytile
 
     def move_unit(self, team, unitid, direction):
         """
