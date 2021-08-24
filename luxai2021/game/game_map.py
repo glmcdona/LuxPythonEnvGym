@@ -16,70 +16,73 @@ class Resource:
         self.amount = amount
 
 
-
+'''Implements /src/GameMap/index.ts'''
 class GameMap:
-    def __init__(self, game, width, height):
-        self.game = game
-        self.height = height
-        self.width = width
+
+    ''' Implements the Enums. '''
+    class Types:
+        EMPTY = 'empty'
+        RANDOM = 'random'
+        DEBUG = 'debug'
+
+
+    def __init__(self, configs):
+        self.height = configs.height
+        self.width = configs.width
 
         # Create map tiles
-        self.map: List[List[Cell]] = [None] * height
+        self.map: List[List[Cell]] = [None] * self.height
         for y in range(0, self.height):
-            self.map[y] = [None] * width
+            self.map[y] = [None] * self.width
             for x in range(0, self.width):
                 self.map[y][x] = Cell(x, y)
 
-        # Initialize the units and resources on the map
-        self._generateMap()
-        
-    def _generateMap(self):
-        '''
-        Generate the symmetric random map
-        Mirror of /Lux-Design-2021/blob/master/src/logic.ts initialize()->generateGame()
-        '''
-        seed = random.randint()
-
-        # Generate only part of the map, and apply symettricaly
-        symmetry_horizontal = (random.random() <= 0.5)
-        half_height = self.height
-        half_width = self.width
-        if symmetry_horizontal:
-            half_height = half_height / 2
-        else:
-            half_width = half_width / 2
-
-        # DEBUG: Generate some random resources around the map.
-        # TODO: Replace with proper symettric map generation after Stone finishes revamp of official generation.
-        for x in range(half_height):
-            for y in range(half_width):
-                if random.rand()  <= 0.10:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.WOOD, 400)
-                elif random.rand() <= 0.03:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.COAL, 100)
-                elif random.rand() <= 0.015:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.URANIUM, 20)
-
-        # Place the starting cities and workers
-        self.game.spawnCityTile(Unit.TEAM.A, 2, 1);
-        self.game.spawnCityTile(Unit.TEAM.B, self.width - 3, 1);
-
-        self.game.spawnWorker(Unit.TEAM.A, 2, 2);
-        self.game.spawnWorker(Unit.TEAM.B, self.width - 3, 2);
-
+    def addResource(self, x, y, resourceType, amount):
+        cell = self.getCell(x, y)
+        cell.setResource(resourceType, amount)
+        self.resources.push(cell)
+        return cell
 
     def getCellByPos(self, pos) -> Cell:
         return self.map[pos.y][pos.x]
 
     def getCell(self, x, y) -> Cell:
         return self.map[y][x]
+    
+    def getRow(self, y):
+        return self.map[y]
+    
+    def getAdjacentCells(self, cell):
+        cells = []
 
-    def _setResource(self, r_type, x, y, amount):
-        """
-        do not use this function, this is for internal tracking of state
-        """
-        cell = self.getCell(x, y)
-        cell.resource = Resource(r_type, amount)
+        # NORTH
+        if cell.pos.y > 0:
+            cells.push(self.getCell(cell.pos.x, cell.pos.y - 1))
+        
+        # EAST
+        if cell.pos.x < self.width - 1:
+            cells.push(self.getCell(cell.pos.x + 1, cell.pos.y))
+        
+        # SOUTH
+        if cell.pos.y < self.height - 1:
+            cells.push(self.getCell(cell.pos.x, cell.pos.y + 1))
+        
+        # WEST
+        if cell.pos.x > 0:
+            cells.push(self.getCell(cell.pos.x - 1, cell.pos.y))
+        
+        return cells
+    
+    def inMap(self, pos):
+        return not (pos.x < 0 or pos.y < 0 or pos.x >= self.width or pos.y >= self.height )
+    
+
+    '''
+    * Return printable map string
+    '''
+    def getMapString(self):
+        #TODO: Optionally implement this to print the game as text
+        return ""
 
 
 class Position:
