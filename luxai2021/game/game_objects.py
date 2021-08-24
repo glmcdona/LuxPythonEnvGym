@@ -3,7 +3,10 @@ from typing import Dict
 from .constants import Constants
 from .game_map import Position
 from .game_constants import GAME_CONSTANTS
-from.actions import *
+from .actions import *
+from .actionable import Actionable
+
+import math
 
 UNIT_TYPES = Constants.UNIT_TYPES
 
@@ -78,25 +81,28 @@ class Cargo:
         self.uranium = 0
 
     def __str__(self) -> str:
-        # TODO: Implement this action effect!
         return f"Cargo | Wood: {self.wood}, Coal: {self.coal}, Uranium: {self.uranium}"
 
 
-class Unit:
+"""
+Implements /src/Unit/index.ts -> Unit()
+"""
+class Unit(Actionable):
+    ''' Enum implemenations '''
+    class Type:
+        WORKER = 0
+        CART = 1
+    
     class TEAM:
         A = 0
         B = 1
     
-    def __init__(self, teamid, u_type, unitid, x, y, cooldown, wood, coal, uranium):
+    def __init__(self, x, y, type, team, configs, idcount):
         self.pos = Position(x, y)
-        self.team = teamid
-        self.id = unitid
-        self.type = u_type
-        self.cooldown = cooldown
+        self.team = team
+        self.type = type
+        self.id = "u_" + idcount
         self.cargo = Cargo()
-        self.cargo.wood = wood
-        self.cargo.coal = coal
-        self.cargo.uranium = uranium
     
     def is_worker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
@@ -113,6 +119,42 @@ class Unit:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"] - spaceused
         else:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"] - spaceused
+
+    def spend_fuel_to_survive(self):
+        """
+        Implements /src/Unit/index.ts -> Unit.spendFuelToSurvive()
+        """
+        fuelNeeded = self.get_light_upkeep()
+        woodNeeded = math.ceil(
+            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD
+        )
+        woodUsed = min(self.cargo.wood, woodNeeded)
+        fuelNeeded -= woodUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD
+        self.cargo.wood -= woodUsed
+        if fuelNeeded <= 0:
+            return True
+
+        coalNeeded = math.ceil(
+            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL
+        )
+        coalUsed = min(self.cargo.coal, coalNeeded)
+        fuelNeeded -= coalUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL
+        self.cargo.coal -= coalUsed
+
+        if fuelNeeded <= 0:
+            return True
+
+        uraniumNeeded = math.ceil(
+            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM
+        )
+        uraniumUsed = min(self.cargo.uranium, uraniumNeeded)
+        fuelNeeded -= uraniumUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM
+        self.cargo.uranium -= uraniumUsed
+
+        if fuelNeeded <= 0:
+            return True
+
+        return fuelNeeded <= 0
     
     def can_build(self, game_map) -> bool:
         """
@@ -187,7 +229,7 @@ class Worker(Unit):
         cell = game.map.get_cell_by_pos(self.pos)
         isNight = game.is_night()
         cooldownMultiplier = 2 if isNight else 1
-        
+
         if self.currentActions.length == 1:
             action = self.currentActions[0]
             acted = True
@@ -215,3 +257,48 @@ class Worker(Unit):
             if acted:
                 self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.WORKER * cooldownMultiplier
     
+
+class Cart(Unit):
+    """
+    Cart class. Mirrors /src/Unit/index.ts -> Cart()
+    """
+    def __init__(self, x, y, team, configs, idcount):
+        super().__init__(x, y, Unit.Type.CART, team, configs, idcount)
+    
+    def get_light_upkeep(self):
+        return self.configs.parameters.LIGHT_UPKEEP.CART
+    
+    def can_move(self):
+        return self.can_act()
+    
+    def turn(self, game):
+        cell = game.map.get_cell_by_pos(self.pos)
+        isNight = game.is_night()
+        cooldownMultiplier = 2 if isNight else 1
+        
+        if self.currentActions.length == 1:
+            action = self.currentActions[0]
+            acted = True
+            if isinstance(action, MoveAction):
+                game.move_unit(action.team, action.unitid, action.direction)
+                self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
+            elif isinstance(action, TransferAction):
+                game.transfer_resources(
+                    action.team,
+                    action.srcID,
+                    action.destID,
+                    action.resourceType,
+                    action.amount
+                )
+            self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
+        
+        endcell = game.map.get_cell_by_pos(self.pos)
+
+        # auto create roads by increasing the cooldown value of the the cell unit is on currently
+        if endcell.getRoad() < self.configs.parameters.MAX_ROAD:
+            endcell.road = min(
+                endcell.road + self.configs.parameters.CART_ROAD_DEVELOPMENT_RATE,
+                self.configs.parameters.MAX_ROAD
+            )
+            game.stats.teamStats[self.team].roadsBuilt += self.configs.parameters.CART_ROAD_DEVELOPMENT_RATE;
+        
