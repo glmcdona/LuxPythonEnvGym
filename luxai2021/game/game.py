@@ -193,8 +193,17 @@ class Game:
         Spawns new cart
         Implements src/Game/index.ts -> Game.spawnCart()
         """
-        # TODO: Implement
-        pass
+        cell = self.map.getCell(x, y)
+        unit = Cart(x, y, team, self.configs, self.global_unitid_count + 1)
+        if unitid:
+            unit.id = unitid
+        else:
+            self.global_unitid_count += 1
+        
+        cell.units.set(unit.id, unit)
+        self.state.teamStates[team].units.set(unit.id, unit)
+        self.stats.teamStats[team].cartsBuilt += 1
+        return unit
 
     def spawn_city_tile(self, team, x, y, cityid = None):
         """
