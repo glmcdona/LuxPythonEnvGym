@@ -1,7 +1,7 @@
 '''Implements /src/GameMap/cell.ts'''
 
-from .game_map import Position
-from .game_map import Resource
+from .position import Position
+from .resource import Resource
 from .game_objects import CityTile
 
 '''

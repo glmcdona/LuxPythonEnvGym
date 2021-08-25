@@ -1,6 +1,9 @@
 
 '''Implements /src/Actions/index.ts'''
-from .game_objects import Player, Unit, City, CityTile
+#from .game_objects import Player, Unit, City, CityTile
+from .constants import Constants
+
+UNIT_TYPES = Constants.UNIT_TYPES
 
 class Action:
     def __init__(self, action, team):
@@ -23,12 +26,12 @@ class SpawnAction(Action):
 
 class SpawnCartAction(SpawnAction):
     def __init__(self, action, team, unitid, x, y):
-        self.type = Unit.Type.CART
+        self.type = UNIT_TYPES.CART
         super().__init__(action, team, unitid, x, y)
 
 class SpawnWorkerAction(SpawnAction):
     def __init__(self, action, team, unitid, x, y):
-        self.type = Unit.Type.WORKER
+        self.type = UNIT_TYPES.WORKER
         super().__init__(action, team, unitid, x, y)
 
 class SpawnCityAction(Action):

@@ -1,8 +1,12 @@
 from .constants import Constants
 from .game_map import GameMap
-from .game_objects import Player, Unit, City, CityTile, Worker, Cart
+
+from .unit import Unit, Worker, Cart
+from .game_objects import City
+#from .game_objects import Player, Unit, City, CityTile, Worker, Cart
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
+DIRECTIONS = Constants.DIRECTIONS
 
 # TODO: Add all the game logic here!
 class Game:
@@ -46,13 +50,6 @@ class Game:
         DEBUG_ANNOTATE_TEXT = 'dt',
         # formatted as dst <message> #/
         DEBUG_ANNOTATE_SIDETEXT = 'dst'
-
-    class DIRECTIONS:
-        NORTH = 'n',
-        EAST = 'e',
-        SOUTH = 's',
-        WEST = 'w',
-        CENTER = 'c',
 
 
     def __init__(self, config = {"width":20, "height": 20}):
