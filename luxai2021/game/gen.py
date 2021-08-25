@@ -4,9 +4,11 @@ import random
 import math
 from .constants import Constants
 from .game import Game
-from .game_map import GameMap, Position, Resource
-from .game_objects import Player, Unit, City, CityTile, Worker, Cart
-import numpy as np
+from .position import Position
+from .resource import Resource
+from .game_map import GameMap
+from .unit import Unit, Worker, Cart
+from .game_objects import City
 
 mapSizes = [12, 16, 24, 32];
 
@@ -27,10 +29,17 @@ MOVE_DELTAS = [
 ]
 
 
+def sign(value):
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
+
 def generateGame(matchconfigs):
     configs = matchconfigs # TODO: Is this line translated right?
     seed = configs.seed
-    rng = random.seed(seed)
+    rng = random.Random(seed)
 
     size = mapSizes[math.floor(rng.random() * len(mapSizes))]
     if (configs.width == None):
@@ -52,9 +61,9 @@ def generateGame(matchconfigs):
         halfHeight = height
         if (rng.random() < 0.5):
             symmetry = SYMMETRY.VERTICAL
-            halfWidth = width / 2
+            halfWidth = math.floor(width / 2)
         else:
-            halfHeight = height / 2
+            halfHeight = math.floor(height / 2)
         
         resourcesMap = generateAllResources(
             rng,
@@ -167,8 +176,8 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
         { "deathLimit": 2, "birthLimit": 4 }
     )
 
-    for row, y in woodResourcesMap:
-        for val, x in row:
+    for y, row in enumerate(woodResourcesMap):
+        for x, val in enumerate(row):
             if (val == 1):
                 amt = min(300 + math.floor(rng.random() * 100), 500)
                 resourcesMap[y][x] = { "type": Resource.Types.WOOD, "amt": amt }
@@ -182,8 +191,8 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
         { "deathLimit": 2, "birthLimit": 4 }
     )
 
-    for row, y in coalResourcesMap:
-        for val, x in row:
+    for y, row in enumerate(coalResourcesMap):
+        for x, val in enumerate(row):
             if (val == 1):
                 amt = 350 + math.floor(rng.random() * 75)
                 resourcesMap[y][x] = { "type": Resource.Types.COAL, "amt": amt }
@@ -197,8 +206,8 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
         { "deathLimit": 1, "birthLimit": 6 }
     )
 
-    for row, y in uraniumResourcesMap:
-        for val, x in row:
+    for y, row in enumerate(uraniumResourcesMap):
+        for x, val in enumerate(row):
             if (val == 1):
                 amt = 300 + math.floor(rng.random() * 50)
                 resourcesMap[y][x] = { "type": Resource.Types.URANIUM, "amt": amt }
@@ -218,13 +227,13 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
                 if (nx < 0 or ny < 0 or nx >= halfHeight or ny >= halfWidth): continue
                 if (rng.random() < 0.05):
                     amt = 300 + math.floor(rng.random() * 50)
-                    if (resource.type == 'coal'):
+                    if (resource["type"] == 'coal'):
                         amt = 350 + math.floor(rng.random() * 75)
                     
-                    if (resource.type == 'wood'):
+                    if (resource["type"] == 'wood'):
                         amt = min(300 + math.floor(rng.random() * 100), 500)
                     
-                    resourcesMap[ny][nx] = { "type": resource.type, "amt": amt }
+                    resourcesMap[ny][nx] = { "type": resource["type"], "amt": amt }
 
 
     for y in range(halfHeight):
@@ -300,12 +309,12 @@ def kernelForce(resourcesMap, rx, ry):
                 dx = rx - x
                 dy = ry - y
                 mdist = abs(dx) + abs(dy)
-                if (r2.type != resource.type):
-                    if (dx != 0): force[0] += math.pow(dx/mdist, 2) * np.sign(dx)
-                    if (dy != 0): force[1] += math.pow(dy/mdist, 2) * np.sign(dy)
+                if (r2["type"] != resource["type"]):
+                    if (dx != 0): force[0] += math.pow(dx/mdist, 2) * sign(dx)
+                    if (dy != 0): force[1] += math.pow(dy/mdist, 2) * sign(dy)
                 else:
-                    if (dx != 0): force[0] -= math.pow(dx/mdist, 2) * np.sign(dx)
-                    if (dy != 0): force[1] -= math.pow(dy/mdist, 2) * np.sign(dy)
+                    if (dx != 0): force[0] -= math.pow(dx/mdist, 2) * sign(dx)
+                    if (dy != 0): force[1] -= math.pow(dy/mdist, 2) * sign(dy)
     
     return force
 
@@ -330,8 +339,8 @@ def gravitateResources(resourcesMap):
          for x in range(len(resourcesMap[y])):
             res = resourcesMap[y][x]
             if (res != None):
-                nx = x + np.sign(res["force"][0])*1
-                ny = y + np.sign(res["force"][1])*1
+                nx = x + sign(res["force"][0])*1
+                ny = y + sign(res["force"][1])*1
                 if (nx < 0): nx = 0
                 if (ny < 0): ny = 0
                 if (nx >= len(resourcesMap[0])): nx = len(resourcesMap[0])-1
@@ -345,18 +354,20 @@ def gravitateResources(resourcesMap):
 
 
 def printMap(resourcesMap):
+    str = ''
     for y in range(len(resourcesMap)):
-        str = ''
         for x in range(len(resourcesMap[y])):
             res = resourcesMap[y][x]
             if (res == None):
                 str += "0 "
             else:
-                str += "%s " % (res.type[0])
+                str += "%s " % (res["type"][0])
+        str += "\n"
     
     print(str)
 
 
+'''
 rng = random.random(0)
 size = mapSizes[math.floor(rng.random() * len(mapSizes))]
 
@@ -380,4 +391,4 @@ resourcesMap = generateAllResources(
 
 print("Initial Resource Half Map")
 printMap(resourcesMap)
-
+'''

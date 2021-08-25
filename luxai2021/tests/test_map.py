@@ -2,21 +2,23 @@
 
 from unittest import TestCase
 from ..game import gen
+from ..game.gen import mapSizes, SYMMETRY, generateAllResources, printMap
 import random
+import math
 
 class TestMap(TestCase):
     def test_gen_resources(self):
-        rng = random.seed(0)
+        rng = random.Random(0)
         size = mapSizes[math.floor(rng.random() * len(mapSizes))]
 
         halfWidth = size
         halfHeight = size
         symmetry = SYMMETRY.HORIZONTAL
-        if (rng() < 0.5):
+        if (rng.random() < 0.5):
             symmetry = SYMMETRY.VERTICAL
-            halfWidth = size / 2
+            halfWidth = math.floor(size / 2)
         else:
-            halfHeight = size / 2
+            halfHeight = math.floor(size / 2)
 
         resourcesMap = generateAllResources(
             rng,
@@ -26,9 +28,13 @@ class TestMap(TestCase):
             halfWidth,
             halfHeight
         )
+        print("Map size %i,%i by half size symmetry %i,%i" % (size, size, halfWidth, halfHeight))
 
         print("Initial Resource Half Map")
-        printMap(resourcesMap)
+        assert len(resourcesMap) == 32
+        assert len(resourcesMap[0]) == 32
+        print("Passed resource map generation test")
+        return True
 
 
 
