@@ -86,8 +86,8 @@ def generateGame(matchconfigs):
                 halfHeight
             )
         
-        for row, y in resourcesMap.Items():
-            for val, x in row:
+        for y, row in enumerate(resourcesMap):
+            for x, val in enumerate(row):
                 if (val != None):
                     map.addResource(x, y, val["type"], val["amt"])
 
@@ -146,8 +146,8 @@ def generateGame(matchconfigs):
 
 def validateResourcesMap(resourcesMap):
     data = { "wood": 0, "coal": 0, "uranium": 0 }
-    for row, y in resourcesMap:
-        for val, x in row:
+    for y, row in enumerate(resourcesMap):
+        for x, val in enumerate(row):
             if (val != None):
                 data[resourcesMap[y][x]["type"]] += resourcesMap[y][x]["amt"]
     
