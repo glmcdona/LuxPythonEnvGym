@@ -1,7 +1,7 @@
 import math
 import random
 from typing import List
-from cell import Cell
+from .cell import Cell
 
 from .constants import Constants
 

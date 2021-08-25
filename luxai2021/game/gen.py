@@ -3,8 +3,10 @@
 import random
 import math
 from .constants import Constants
+from .game import Game
 from .game_map import GameMap, Position, Resource
 from .game_objects import Player, Unit, City, CityTile, Worker, Cart
+import numpy as np
 
 mapSizes = [12, 16, 24, 32];
 
@@ -22,7 +24,7 @@ MOVE_DELTAS = [
   [1, -1],
   [1, 0],
   [1, 1],
-];
+]
 
 
 def generateGame(matchconfigs):
@@ -30,14 +32,14 @@ def generateGame(matchconfigs):
     seed = configs.seed
     rng = random.seed(seed)
 
-    size = mapSizes[math.floor(rng() * mapSizes.length)]
+    size = mapSizes[math.floor(rng.random() * len(mapSizes))]
     if (configs.width == None):
         configs.width = size
     
     if (configs.height == None):
         configs.height = size
 
-    game = new Game(configs);
+    game = Game(configs)
     map = game.map
     width = map.width
     height = map.height
@@ -96,15 +98,15 @@ def generateGame(matchconfigs):
             game.spawnCityTile(Unit.TEAM.B, width - spawnX - 1, spawnY)
         
         # add at least 3 wood deposits near spawns
-        deltaIndex = math.floor(rng.random()() * MOVE_DELTAS.length)
+        deltaIndex = math.floor(rng.random()() * len(MOVE_DELTAS))
         woodSpawnsDeltas = [
             MOVE_DELTAS[deltaIndex],
-            MOVE_DELTAS[(deltaIndex + 1) % MOVE_DELTAS.length],
-            MOVE_DELTAS[(deltaIndex + 2) % MOVE_DELTAS.length],
-            MOVE_DELTAS[(deltaIndex + 3) % MOVE_DELTAS.length],
-            MOVE_DELTAS[(deltaIndex + 4) % MOVE_DELTAS.length],
-            MOVE_DELTAS[(deltaIndex + 5) % MOVE_DELTAS.length],
-            MOVE_DELTAS[(deltaIndex + 6) % MOVE_DELTAS.length]
+            MOVE_DELTAS[(deltaIndex + 1) % len(MOVE_DELTAS)],
+            MOVE_DELTAS[(deltaIndex + 2) % len(MOVE_DELTAS)],
+            MOVE_DELTAS[(deltaIndex + 3) % len(MOVE_DELTAS)],
+            MOVE_DELTAS[(deltaIndex + 4) % len(MOVE_DELTAS)],
+            MOVE_DELTAS[(deltaIndex + 5) % len(MOVE_DELTAS)],
+            MOVE_DELTAS[(deltaIndex + 6) % len(MOVE_DELTAS)]
         ]
         count = 0
         for delta in woodSpawnsDeltas:
@@ -121,11 +123,11 @@ def generateGame(matchconfigs):
                 continue
             
             if not map.getCell(nx, ny).hasResource() and map.getCell(nx, ny).citytile == None:
-                count += 1;
+                count += 1
                 map.addResource(nx, ny, Resource.Types.WOOD, 800)
             
             if not map.getCell(nx2, ny2).hasResource() and map.getCell(nx2, ny2).citytile == None:
-                count += 1;
+                count += 1
                 map.addResource(nx2, ny2, Resource.Types.WOOD, 800)
             
             if (count == 6): break
@@ -152,9 +154,9 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
     resourcesMap = []
 
     for i in range(height):
-        resourcesMap.push([])
+        resourcesMap.append([])
         for j in range(width):
-            resourcesMap[i].push(None)
+            resourcesMap[i].append(None)
 
     woodResourcesMap = generateResourceMap(
         rng,
@@ -235,40 +237,147 @@ def generateAllResources(rng, symmetry, width, height, halfWidth, halfHeight):
     
     return resourcesMap
 
+def generateResourceMap(rng, density, densityRange, width, height, golOptions = { "deathLimit": 2, "birthLimit": 4 } ):
+    # width, height should represent half of the map
+    DENSITY = density - densityRange / 2 + densityRange * rng.random();
+    arr = []
+    for y in range(height):
+        arr.append([])
+        for x in range(width):
+            type = 0
+            if (rng.random() < DENSITY):
+                type = 1
+
+            arr[y].append(type)
+
+    # simulate GOL for 2 rounds
+    for i in range(2):
+        arr = simulateGOL(arr, golOptions)
+    
+    return arr
+
+def simulateGOL(arr, options):
+    # high birthlimit = unlikely to deviate from initial random spots
+    # high deathlimit = lots of patches die
+    padding = 1
+    deathLimit = options["deathLimit"]
+    birthLimit = options["birthLimit"]
+    for i in range( padding, len(arr) - padding ):
+        for j in range( padding, len(arr[0]) - padding ):
+            alive = 0
+            for k in range( len(MOVE_DELTAS) ):
+                delta = MOVE_DELTAS[k]
+                ny = i + delta[1]
+                nx = j + delta[0]
+                if (arr[ny][nx] == 1):
+                    alive += 1
+            
+            if (arr[i][j] == 1):
+                if (alive < deathLimit):
+                    arr[i][j] = 0
+                else:
+                    arr[i][j] = 1
+            else:
+                if (alive > birthLimit):
+                    arr[i][j] = 1
+                else:
+                    arr[i][j] = 0
+    
+    return arr
 
 
-"""
-def _generateMap(self):
-        '''
-        Generate the symmetric random map
-        Mirror of /Lux-Design-2021/blob/master/src/logic.ts initialize()->generateGame()
-        '''
-        seed = random.randint()
+def kernelForce(resourcesMap, rx, ry):
+    force = [0, 0]
+    resource = resourcesMap[ry][rx]
+    kernelSize = 5
 
-        # Generate only part of the map, and apply symettricaly
-        symmetry_horizontal = (random.random() <= 0.5)
-        half_height = self.height
-        half_width = self.width
-        if symmetry_horizontal:
-            half_height = half_height / 2
-        else:
-            half_width = half_width / 2
+    for y in range(ry - kernelSize, ry + kernelSize):
+        for x in range(rx - kernelSize, rx + kernelSize):
+            if (x < 0 or y < 0 or x >= len(resourcesMap[0]) or y >= len(resourcesMap)): continue
 
-        # DEBUG: Generate some random resources around the map.
-        # TODO: Replace with proper symettric map generation after Stone finishes revamp of official generation.
-        for x in range(half_height):
-            for y in range(half_width):
-                if random.rand()  <= 0.10:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.WOOD, 400)
-                elif random.rand() <= 0.03:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.COAL, 100)
-                elif random.rand() <= 0.015:
-                    self.map[y][x].resource = Resource(Constants.RESOURCE_TYPES.URANIUM, 20)
+            r2 = resourcesMap[y][x]
+            if (r2 != None):
+                dx = rx - x
+                dy = ry - y
+                mdist = abs(dx) + abs(dy)
+                if (r2.type != resource.type):
+                    if (dx != 0): force[0] += math.pow(dx/mdist, 2) * np.sign(dx)
+                    if (dy != 0): force[1] += math.pow(dy/mdist, 2) * np.sign(dy)
+                else:
+                    if (dx != 0): force[0] -= math.pow(dx/mdist, 2) * np.sign(dx)
+                    if (dy != 0): force[1] -= math.pow(dy/mdist, 2) * np.sign(dy)
+    
+    return force
 
-        # Place the starting cities and workers
-        self.game.spawnCityTile(Unit.TEAM.A, 2, 1);
-        self.game.spawnCityTile(Unit.TEAM.B, self.width - 3, 1);
 
-        self.game.spawnWorker(Unit.TEAM.A, 2, 2);
-        self.game.spawnWorker(Unit.TEAM.B, self.width - 3, 2);
-"""
+def gravitateResources(resourcesMap):
+    #
+    # Gravitate like to like, push different resources away from each other.
+    # 
+    # Add's a force direction to each cell.
+    #
+    newResourcesMap = []
+    for y in range(len(resourcesMap)):
+        newResourcesMap.append([])
+        for x in range(len(resourcesMap[y])):
+            newResourcesMap[y].append(None)
+            res = resourcesMap[y][x]
+            if (res != None):
+                f = kernelForce(resourcesMap, x, y)
+                resourcesMap[y][x]["force"] = f
+
+    for y in range(len(resourcesMap)):
+         for x in range(len(resourcesMap[y])):
+            res = resourcesMap[y][x]
+            if (res != None):
+                nx = x + np.sign(res["force"][0])*1
+                ny = y + np.sign(res["force"][1])*1
+                if (nx < 0): nx = 0
+                if (ny < 0): ny = 0
+                if (nx >= len(resourcesMap[0])): nx = len(resourcesMap[0])-1
+                if (ny >= len(resourcesMap)): ny = len(resourcesMap) - 1
+                if (newResourcesMap[ny][nx] == None):
+                    newResourcesMap[ny][nx] = res
+                else:
+                    newResourcesMap[y][x] = res
+    
+    return newResourcesMap
+
+
+def printMap(resourcesMap):
+    for y in range(len(resourcesMap)):
+        str = ''
+        for x in range(len(resourcesMap[y])):
+            res = resourcesMap[y][x]
+            if (res == None):
+                str += "0 "
+            else:
+                str += "%s " % (res.type[0])
+    
+    print(str)
+
+
+rng = random.random(0)
+size = mapSizes[math.floor(rng.random() * len(mapSizes))]
+
+halfWidth = size
+halfHeight = size
+symmetry = SYMMETRY.HORIZONTAL
+if (rng() < 0.5):
+   symmetry = SYMMETRY.VERTICAL
+   halfWidth = size / 2
+else:
+    halfHeight = size / 2
+
+resourcesMap = generateAllResources(
+   rng,
+   symmetry,
+   size,
+   size,
+   halfWidth,
+   halfHeight
+ )
+
+print("Initial Resource Half Map")
+printMap(resourcesMap)
+
