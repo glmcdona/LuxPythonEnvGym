@@ -2,12 +2,13 @@
 
 from unittest import TestCase
 from ..game import gen
-from ..game.gen import mapSizes, SYMMETRY, generateAllResources, printMap
+from ..game.gen import mapSizes, SYMMETRY, generateAllResources, printMap, generateGame
 import random
 import math
 
 class TestMap(TestCase):
     def test_gen_resources(self):
+        print("Testing generating resource map...")
         rng = random.Random(0)
         size = mapSizes[math.floor(rng.random() * len(mapSizes))]
 
@@ -35,6 +36,13 @@ class TestMap(TestCase):
         assert len(resourcesMap[0]) == 32
         print("Passed resource map generation test")
         return True
+
+    def test_gen_game(self):
+        print("Testing generating game...")
+        game = generateGame(config)
+
+        # Print the game map
+        print(game.map.getMapString())
 
 
 

@@ -1,3 +1,5 @@
+from game.unit import Cart
+from game.actions import UNIT_TYPES
 import math
 import random
 from typing import List
@@ -75,7 +77,61 @@ class GameMap:
     * Return printable map string
     '''
     def getMapString(self):
-        #TODO: Optionally implement this to print the game as text
-        return ""
+        # W<team> = Worker
+        # C<team> = Cart
+        # ◰<team> = City
+        # <number><team> = Stacked units from specified team.
+        # ▩▩ = Wood
+        # ▣▣ = Coal
+        # ▷▷ == Uranium
+        str = ''
+        for y in range(self.height):
+            row = self.getRow(y)
+            for cell in row:
+                if (cell.hasUnits()):
+                    if (cell.units.size == 1):
+                        unitstr = '?'
+                        unit = cell.units[0]
+                        if unit["type"] == Constants.UNIT_TYPES.CART:
+                            unitstr = 'C'
+                        elif unit["type"] == Constants.UNIT_TYPES.WORKER:
+                            unitstr = 'W'
+                        
+                        if unit.team == Constants.TEAM.A:
+                            unitstr += "a"
+                        elif unit.team == Constants.TEAM.B:
+                            unitstr += "b"
+                        else:
+                            unitstr += "?"
+                        
+                        str += unitstr
+                    else:
+                        unitstr = len(cell.units)
+                        
+                        if unit.team == Constants.TEAM.A:
+                            unitstr += "a"
+                        elif unit.team == Constants.TEAM.B:
+                            unitstr += "b"
+                        else:
+                            unitstr += "?"
+                        
+                        str += unitstr
+                elif (cell.hasResource()):
+                    if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                        str += "▩▩"
+                    if cell.resource.type == Constants.RESOURCE_TYPES.COAL:
+                        str += "▣▣"
+                    if cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
+                        str += "▷▷"
+                elif (cell.isCityTile()):
+                        str += "◰";
+                        if cell.citytile.team == Constants.TEAM.A:
+                            str += "a"
+                        elif cell.citytile.team == Constants.TEAM.B:
+                            str += "b"
+                        else:
+                            str += "?"
+            str += "\n"
+        return str
 
 
