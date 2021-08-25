@@ -236,7 +236,7 @@ class Worker(Unit):
         isNight = game.isNight()
         cooldownMultiplier = 2 if isNight else 1
 
-        if self.currentActions.length == 1:
+        if len(self.currentActions) == 1:
             action = self.currentActions[0]
             acted = True
             if isinstance(action, MoveAction):
@@ -282,7 +282,7 @@ class Cart(Unit):
         isNight = game.isNight()
         cooldownMultiplier = 2 if isNight else 1
         
-        if self.currentActions.length == 1:
+        if len(self.currentActions) == 1:
             action = self.currentActions[0]
             acted = True
             if isinstance(action, MoveAction):

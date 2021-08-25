@@ -15,4 +15,6 @@ setup(
          "stable_baselines3",
          "numpy",
     ],
+    test_suite='nose2.collector.collector',
+    tests_require=['nose2'],
 )
