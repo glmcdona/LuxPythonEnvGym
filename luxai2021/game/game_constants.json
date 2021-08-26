@@ -1,20 +1,4 @@
 {
-  "UNIT_TYPES": {
-    "WORKER": 0,
-    "CART": 1
-  },
-  "RESOURCE_TYPES": {
-    "WOOD": "wood",
-    "COAL": "coal",
-    "URANIUM": "uranium"
-  },
-  "DIRECTIONS": {
-    "NORTH": "n",
-    "WEST": "w",
-    "EAST": "e",
-    "SOUTH": "s",
-    "CENTER": "c"
-  },
   "PARAMETERS": {
     "DAY_LENGTH": 30,
     "NIGHT_LENGTH": 10,

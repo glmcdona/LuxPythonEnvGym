@@ -8,7 +8,7 @@ from .position import Position
 from .resource import Resource
 from .game_map import GameMap
 from .unit import Unit, Worker, Cart
-from .game_objects import City
+from .city import City
 
 mapSizes = [12, 16, 24, 32];
 
@@ -38,22 +38,25 @@ def sign(value):
 
 def generateGame(matchconfigs):
     configs = matchconfigs # TODO: Is this line translated right?
-    seed = configs.seed
-    rng = random.Random(seed)
-
-    size = mapSizes[math.floor(rng.random() * len(mapSizes))]
-    if (configs.width == None):
-        configs.width = size
+    if configs["seed"] != None:
+        seed = configs["seed"]
+        rng = random.Random(seed)
+    else:
+        rng = random.Random()
     
-    if (configs.height == None):
-        configs.height = size
+    size = mapSizes[math.floor(rng.random() * len(mapSizes))]
+    if ("width" not in configs):
+        configs["width"] = size
+    
+    if ("height" not in configs):
+        configs["height"] = size
 
     game = Game(configs)
     map = game.map
     width = map.width
     height = map.height
 
-    if (configs.mapType == GameMap.Types.EMPTY):
+    if (configs["mapType"] == Constants.MAP_TYPES.EMPTY):
         return game
     else:
         symmetry = SYMMETRY.HORIZONTAL
@@ -91,23 +94,23 @@ def generateGame(matchconfigs):
                 if (val != None):
                     map.addResource(x, y, val["type"], val["amt"])
 
-        spawnX = math.floor(rng.random()() * (halfWidth - 1)) + 1
-        spawnY = math.floor(rng.random()() * (halfHeight - 1)) + 1
+        spawnX = math.floor(rng.random() * (halfWidth - 1)) + 1
+        spawnY = math.floor(rng.random() * (halfHeight - 1)) + 1
         while (map.getCell(spawnX, spawnY).hasResource()):
-            spawnX = math.floor(rng.random()() * (halfWidth - 1)) + 1
-            spawnY = math.floor(rng.random()() * (halfHeight - 1)) + 1
+            spawnX = math.floor(rng.random() * (halfWidth - 1)) + 1
+            spawnY = math.floor(rng.random() * (halfHeight - 1)) + 1
         
-        game.spawnWorker(Unit.TEAM.A, spawnX, spawnY)
-        game.spawnCityTile(Unit.TEAM.A, spawnX, spawnY)
+        game.spawnWorker(Constants.TEAM.A, spawnX, spawnY)
+        game.spawnCityTile(Constants.TEAM.A, spawnX, spawnY)
         if (symmetry == SYMMETRY.HORIZONTAL):
-            game.spawnWorker(Unit.TEAM.B, spawnX, height - spawnY - 1)
-            game.spawnCityTile(Unit.TEAM.B, spawnX, height - spawnY - 1)
+            game.spawnWorker(Constants.TEAM.B, spawnX, height - spawnY - 1)
+            game.spawnCityTile(Constants.TEAM.B, spawnX, height - spawnY - 1)
         else:
-            game.spawnWorker(Unit.TEAM.B, width - spawnX - 1, spawnY)
-            game.spawnCityTile(Unit.TEAM.B, width - spawnX - 1, spawnY)
+            game.spawnWorker(Constants.TEAM.B, width - spawnX - 1, spawnY)
+            game.spawnCityTile(Constants.TEAM.B, width - spawnX - 1, spawnY)
         
         # add at least 3 wood deposits near spawns
-        deltaIndex = math.floor(rng.random()() * len(MOVE_DELTAS))
+        deltaIndex = math.floor(rng.random() * len(MOVE_DELTAS))
         woodSpawnsDeltas = [
             MOVE_DELTAS[deltaIndex],
             MOVE_DELTAS[(deltaIndex + 1) % len(MOVE_DELTAS)],
@@ -366,29 +369,3 @@ def printMap(resourcesMap):
     
     print(str)
 
-
-'''
-rng = random.random(0)
-size = mapSizes[math.floor(rng.random() * len(mapSizes))]
-
-halfWidth = size
-halfHeight = size
-symmetry = SYMMETRY.HORIZONTAL
-if (rng() < 0.5):
-   symmetry = SYMMETRY.VERTICAL
-   halfWidth = size / 2
-else:
-    halfHeight = size / 2
-
-resourcesMap = generateAllResources(
-   rng,
-   symmetry,
-   size,
-   size,
-   halfWidth,
-   halfHeight
- )
-
-print("Initial Resource Half Map")
-printMap(resourcesMap)
-'''

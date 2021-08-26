@@ -16,7 +16,7 @@ class Unit(Actionable):
         self.pos = Position(x, y)
         self.team = team
         self.type = type
-        self.id = "u_" + idcount
+        self.id = "u_%i" % idcount
         self.cargo = Cargo()
     
     def isWorker(self) -> bool:
@@ -41,29 +41,29 @@ class Unit(Actionable):
         """
         fuelNeeded = self.getLightUpkeep()
         woodNeeded = math.ceil(
-            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD
+            fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
         )
         woodUsed = min(self.cargo.wood, woodNeeded)
-        fuelNeeded -= woodUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD
+        fuelNeeded -= woodUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
         self.cargo.wood -= woodUsed
         if fuelNeeded <= 0:
             return True
 
         coalNeeded = math.ceil(
-            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL
+            fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
         )
         coalUsed = min(self.cargo.coal, coalNeeded)
-        fuelNeeded -= coalUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL
+        fuelNeeded -= coalUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
         self.cargo.coal -= coalUsed
 
         if fuelNeeded <= 0:
             return True
 
         uraniumNeeded = math.ceil(
-            fuelNeeded / self.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM
+            fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
         )
         uraniumUsed = min(self.cargo.uranium, uraniumNeeded)
-        fuelNeeded -= uraniumUsed * self.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM
+        fuelNeeded -= uraniumUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
         self.cargo.uranium -= uraniumUsed
 
         if fuelNeeded <= 0:
@@ -136,10 +136,10 @@ class Worker(Unit):
     Worker class. Mirrors /src/Unit/index.ts -> Worker()
     """
     def __init__(self, x, y, team, configs, idcount):
-        super().__init__(x, y, Unit.Type.WORKER, team, configs, idcount)
+        super().__init__(x, y, Constants.UNIT_TYPES.WORKER, team, configs, idcount)
     
     def getLightUpkeep(self):
-        return self.configs.parameters.LIGHT_UPKEEP.WORKER
+        return self.configs["parameters"]["LIGHT_UPKEEP"]["WORKER"]
     
     def canMove(self):
         return self.canAct()
@@ -148,8 +148,8 @@ class Worker(Unit):
         # use wood, then coal, then uranium for building
         spentResources = 0
         for rtype in ["wood", "coal", "uranium"]:
-            if (spentResources + self.cargo[rtype] > self.configs.parameters.CITY_BUILD_COST):
-                rtypeSpent = self.configs.parameters.CITY_BUILD_COST - spentResources
+            if (spentResources + self.cargo[rtype] > self.configs["parameters"]["CITY_BUILD_COST"]):
+                rtypeSpent = self.configs["parameters"]["CITY_BUILD_COST"] - spentResources
                 self.cargo[rtype] -= rtypeSpent
                 break
             else:
@@ -179,14 +179,14 @@ class Worker(Unit):
                 self.expendResourcesForCity()
             elif isinstance(action, PillageAction):
                 cell.road = max(
-                    cell.road - self.configs.parameters.PILLAGE_RATE,
-                    self.configs.parameters.MIN_ROAD
+                    cell.road - self.configs["parameters"]["PILLAGE_RATE"],
+                    self.configs["parameters"]["MIN_ROAD"]
                 )
             else:
                 acted = False
             
             if acted:
-                self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.WORKER * cooldownMultiplier
+                self.cooldown += self.configs["parameters"]["UNIT_ACTION_COOLDOWN"]["WORKER"] * cooldownMultiplier
     
 
 class Cart(Unit):
@@ -194,10 +194,10 @@ class Cart(Unit):
     Cart class. Mirrors /src/Unit/index.ts -> Cart()
     """
     def __init__(self, x, y, team, configs, idcount):
-        super().__init__(x, y, Unit.Type.CART, team, configs, idcount)
+        super().__init__(x, y, Constants.UNIT_TYPES.CART, team, configs, idcount)
     
     def getLightUpkeep(self):
-        return self.configs.parameters.LIGHT_UPKEEP.CART
+        return self.configs["parameters"]["LIGHT_UPKEEP"]["CART"]
     
     def canMove(self):
         return self.canAct()
@@ -212,7 +212,7 @@ class Cart(Unit):
             acted = True
             if isinstance(action, MoveAction):
                 game.moveUnit(action.team, action.unitid, action.direction)
-                self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
+                self.cooldown += self.configs["parameters"]["UNIT_ACTION_COOLDOWN"]["CART"] * cooldownMultiplier
             elif isinstance(action, TransferAction):
                 game.transferResources(
                     action.team,
@@ -221,15 +221,15 @@ class Cart(Unit):
                     action.resourceType,
                     action.amount
                 )
-            self.cooldown += self.configs.parameters.UNIT_ACTION_COOLDOWN.CART * cooldownMultiplier
+            self.cooldown += self.configs["parameters"]["UNIT_ACTION_COOLDOWN"]["CART"] * cooldownMultiplier
         
         endcell = game.map.getCellByPos(self.pos)
 
         # auto create roads by increasing the cooldown value of the the cell unit is on currently
-        if endcell.getRoad() < self.configs.parameters.MAX_ROAD:
+        if endcell.getRoad() < self.configs["parameters"]["MAX_ROAD"]:
             endcell.road = min(
-                endcell.road + self.configs.parameters.CART_ROAD_DEVELOPMENT_RATE,
+                endcell.road + self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"],
                 self.configs.parameters.MAX_ROAD
             )
-            game.stats.teamStats[self.team].roadsBuilt += self.configs.parameters.CART_ROAD_DEVELOPMENT_RATE;
+            game.stats.teamStats[self.team].roadsBuilt += self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"]
         

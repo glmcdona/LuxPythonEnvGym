@@ -2,7 +2,7 @@
 
 from .position import Position
 from .resource import Resource
-from .game_objects import CityTile
+from .city import CityTile
 
 '''
 /**
@@ -19,7 +19,8 @@ class Cell:
         self.resource: Resource = None
         self.citytile = None
         self.configs = configs
-        self.road = configs.parameters.MIN_ROAD
+        self.units = {}
+        self.road = configs["parameters"]["MIN_ROAD"]
 
     def setResource(self, resourceType, amount):
         self.resource = Resource(resourceType, amount)
@@ -36,11 +37,11 @@ class Cell:
         return self.citytile != None
     
     def hasUnits(self):
-        return self.units.size != 0
+        return len(self.units) != 0
     
     def getRoad(self):
         if self.isCityTile():
-            return self.configs.parameters.MAX_ROAD
+            return self.configs["parameters"]["MAX_ROAD"]
         else:
             return self.road
     

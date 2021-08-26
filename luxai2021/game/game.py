@@ -1,8 +1,8 @@
-from .constants import Constants
+from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
 
 from .unit import Unit, Worker, Cart
-from .game_objects import City
+from .city import City
 #from .game_objects import Player, Unit, City, CityTile, Worker, Cart
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
@@ -52,14 +52,17 @@ class Game:
         DEBUG_ANNOTATE_SIDETEXT = 'dst'
 
 
-    def __init__(self, config = {"width":20, "height": 20}):
+    def __init__(self, configs = None):
         # Initializations from src/Game/index.ts -> Game()
+        self.configs = LuxMatchConfigs_Default
+        self.configs.update(configs) # Override default config from specified config
+
         self.globalCityIDCount = 0
         self.globalUnitIDCount = 0
         self.cities = {} # string -> City
         self.stats = {
             "teamStats": {
-                Unit.TEAM.A: {
+                Constants.TEAM.A: {
                     "fuelGenerated": 0,
                     "resourcesCollected": {
                         "wood": 0,
@@ -72,7 +75,7 @@ class Game:
                     "roadsBuilt": 0,
                     "roadsPillaged": 0,
                 },
-                Unit.TEAM.B: {
+                Constants.TEAM.B: {
                     "fuelGenerated": 0,
                     "resourcesCollected": {
                         "wood": 0,
@@ -90,7 +93,7 @@ class Game:
         self.state = {
             "turn" : 0,
             "teamStates" : {
-                Unit.TEAM.A : {
+                Constants.TEAM.A : {
                     "researchPoints": 0,
                     "units" : {},
                     "researched" : {
@@ -99,7 +102,7 @@ class Game:
                         "uranium" : False,
                     }
                 },
-                Unit.TEAM.B : {
+                Constants.TEAM.B : {
                     "researchPoints": 0,
                     "units" : {},
                     "researched" : {
@@ -110,7 +113,7 @@ class Game:
                 },
             }
         }
-        self.map = GameMap(self, config["width"], config["height"])
+        self.map = GameMap(self.configs)
 
     def _genInitialAccumulatedActionStats(self):
         """
@@ -118,12 +121,12 @@ class Game:
         Implements src/Game/index.ts -> Game._genInitialAccumulatedActionStats()
         """
         return {
-                Unit.TEAM.A: {
+                Constants.TEAM.A: {
                     "workersBuilt": 0,
                     "cartsBuilt": 0,
                     "actionsPlaced": set(),
                 },
-                Unit.TEAM.B: {
+                Constants.TEAM.B: {
                     "workersBuilt": 0,
                     "cartsBuilt": 0,
                     "actionsPlaced": set(),
@@ -151,7 +154,7 @@ class Game:
             if city.team == team:
                 team_city_count += 1
         
-        return self.state["teamStates"][team]["units"]["size"] + offset >= team_city_count
+        return len(self.state["teamStates"][team]["units"]) + offset >= team_city_count
     
     def cartUnitCapReached(self, team, offset = 0):
         """
@@ -179,10 +182,10 @@ class Game:
         else:
             self.globalUnitIDCount += 1
         
-        cell.units.set(unit.id, unit)
+        cell.units[unit.id] = unit
 
-        self.state["teamStates"][team]["units"].set(unit.id, unit)
-        self.stats["teamStates"][team]["workersBuilt"] += 1
+        self.state["teamStates"][team]["units"][unit.id] = unit
+        self.stats["teamStats"][team]["workersBuilt"] += 1
         return unit
 
     def spawnCart(self, team, x, y, unitid = None):
@@ -197,9 +200,9 @@ class Game:
         else:
             self.globalUnitIDCount += 1
         
-        cell.units.set(unit.id, unit)
-        self.state["teamStates"][team]["units"].set(unit.id, unit)
-        self.stats["teamStates"][team]["cartsBuilt"] += 1
+        cell.units[unit.id] = unit
+        self.state["teamStates"][team]["units"][unit.id] = unit
+        self.stats["teamStats"][team]["cartsBuilt"] += 1
         return unit
 
     def spawnCityTile(self, team, x, y, cityid = None):
@@ -231,13 +234,13 @@ class Game:
             
             cell.setCityTile(team, city.id)
             city.addCityTile(cell)
-            self.cities.set(city.id, city)
+            self.cities[city.id] = city
             return cell.citytile
         
         else:
             # otherwise add tile to city
             cityid = adjSameTeamCityTiles[0].citytile.cityid
-            city = self.cities.get(cityid)
+            city = self.cities[cityid]
             cell.setCityTile(team, cityid)
 
             # update adjacency counts for bonuses
@@ -249,7 +252,7 @@ class Game:
             # update all merged cities' cells with merged cityid, move to merged city and delete old city
             for cityid in cityIdsFound:
                 if id != cityid:
-                    oldcity = self.cities.get(id)
+                    oldcity = self.cities[id]
                     for cell in oldcity.citycells:
                         cell.citytile.cityid = cityid
                         city.addCityTile(cell)
