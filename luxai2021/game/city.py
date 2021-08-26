@@ -4,6 +4,7 @@ from .actionable import Actionable
 from .position import Position
 from .resource import Resource
 from .actions import *
+import math
 
 '''
 //**
@@ -48,6 +49,9 @@ class CityTile(Actionable):
     def canResearch(self):
         return self.canAct()
     
+    def getCargoSpaceLeft(self):
+        return 9999999 # Infinite space
+
     def turn(self, game):
         if (len(self.currentActions) == 1):
             action = self.currentActions[0]

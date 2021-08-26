@@ -17,7 +17,11 @@ class Unit(Actionable):
         self.team = team
         self.type = type
         self.id = "u_%i" % idcount
-        self.cargo = Cargo()
+        self.cargo = {
+            "wood": 0,
+            "uranium": 0,
+            "coal": 0,
+        }
     
     def isWorker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
@@ -29,7 +33,7 @@ class Unit(Actionable):
         """
         get cargo space left in this unit
         """
-        spaceused = self.cargo.wood + self.cargo.coal + self.cargo.uranium
+        spaceused = self.cargo["wood"] + self.cargo["coal"] + self.cargo["uranium"]
         if self.type == UNIT_TYPES.WORKER:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"] - spaceused
         else:
@@ -43,18 +47,18 @@ class Unit(Actionable):
         woodNeeded = math.ceil(
             fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
         )
-        woodUsed = min(self.cargo.wood, woodNeeded)
+        woodUsed = min(self.cargo["wood"], woodNeeded)
         fuelNeeded -= woodUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
-        self.cargo.wood -= woodUsed
+        self.cargo["wood"] -= woodUsed
         if fuelNeeded <= 0:
             return True
 
         coalNeeded = math.ceil(
             fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
         )
-        coalUsed = min(self.cargo.coal, coalNeeded)
+        coalUsed = min(self.cargo["coal"], coalNeeded)
         fuelNeeded -= coalUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
-        self.cargo.coal -= coalUsed
+        self.cargo["coal"] -= coalUsed
 
         if fuelNeeded <= 0:
             return True
@@ -62,9 +66,9 @@ class Unit(Actionable):
         uraniumNeeded = math.ceil(
             fuelNeeded / self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
         )
-        uraniumUsed = min(self.cargo.uranium, uraniumNeeded)
+        uraniumUsed = min(self.cargo["uranium"], uraniumNeeded)
         fuelNeeded -= uraniumUsed * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
-        self.cargo.uranium -= uraniumUsed
+        self.cargo["uranium"] -= uraniumUsed
 
         if fuelNeeded <= 0:
             return True
@@ -76,7 +80,7 @@ class Unit(Actionable):
         whether or not the unit can build where it is right now
         """
         cell = game_map.getCellByPos(self.pos)
-        if not cell.hasResource() and self.canAct() and (self.cargo.wood + self.cargo.coal + self.cargo.uranium) >= GAME_CONSTANTS["PARAMETERS"]["CITY_BUILD_COST"]:
+        if not cell.hasResource() and self.canAct() and (self.cargo["wood"] + self.cargo["coal"] + self.cargo["uranium"]) >= GAME_CONSTANTS["PARAMETERS"]["CITY_BUILD_COST"]:
             return True
         return False
 

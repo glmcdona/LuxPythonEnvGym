@@ -18,6 +18,11 @@ class GameMap:
         self.height = configs["height"]
         self.width = configs["width"]
         self.resources = []
+        self.resources_by_type = {
+                                    Constants.RESOURCE_TYPES.WOOD : [],
+                                    Constants.RESOURCE_TYPES.COAL : [],
+                                    Constants.RESOURCE_TYPES.URANIUM : [],
+                                }
 
         # Create map tiles
         self.map: List[List[Cell]] = [None] * self.height
@@ -30,6 +35,7 @@ class GameMap:
         cell = self.getCell(x, y)
         cell.setResource(resourceType, amount)
         self.resources.append(cell)
+        self.resources_by_type[resourceType].append(cell)
         return cell
 
     def getCellByPos(self, pos) -> Cell:
