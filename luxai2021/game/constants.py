@@ -1,3 +1,5 @@
+from .game_constants import GAME_CONSTANTS
+
 class Constants:
     class INPUT_CONSTANTS:
         RESEARCH_POINTS = "rp"
@@ -23,3 +25,20 @@ class Constants:
         WOOD = "wood"
         URANIUM = "uranium"
         COAL = "coal"
+    class MAP_TYPES:
+        EMPTY = 'empty'
+        RANDOM = 'random'
+        DEBUG = 'debug'
+
+LuxMatchConfigs_Default ={
+    "mapType": Constants.MAP_TYPES.RANDOM,
+    "storeReplay": True,
+    "seed": None,
+    "debug": False,
+    "debugDelay": 500,
+    "runProfiler": False,
+    "compressReplay": False,
+    "debugAnnotations": False,
+    "statefulReplay": False,
+    "parameters": GAME_CONSTANTS["PARAMETERS"],
+}
