@@ -3,7 +3,7 @@ from .game_map import GameMap
 
 from .unit import Unit, Worker, Cart
 from .city import City
-#from .game_objects import Player, Unit, City, CityTile, Worker, Cart
+import math
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
@@ -267,24 +267,124 @@ class Game:
         Moves a unit
         Implements src/Game/index.ts -> Game.moveUnit()
         """
-        # TODO: Implement
-        pass
+        unit = self.getUnit(team, unitid)
 
-    def handleResourceRelease(self, original_cell):
+        # remove unit from old cell and move to new one and update unit pos
+        self.map.getCellByPos(unit.pos).units.pop(unit.id)
+        unit.pos = unit.pos.translate(direction, 1)
+        self.map.getCellByPos(unit.pos).units[unit.id] = unit
+
+    def distributeAllResources(self):
+        """
+        Distributes resources
+        Implements src/Game/index.ts -> Game.distributeAllResources()
+        """
+        miningOrder = [
+            Constants.RESOURCE_TYPES.URANIUM,
+            Constants.RESOURCE_TYPES.COAL,
+            Constants.RESOURCE_TYPES.WOOD,
+        ]
+
+        # Note: I optimized this loop from the base game to potentially improve perf. Seemed
+        # like this may have been one of the more-costly part of the update loop.
+        for curType in miningOrder:
+            for cell in self.map.resources_by_type[curType]:
+                self.handleResourceRelease(cell)
+
+    def handleResourceRelease(self, originalCell):
         """
         For cells with resources, this will release the resource to all adjacent workers (including any unit on top)
         Implements src/Game/index.ts -> Game.handleResourceRelease()
+
+        * For cells with resources, this will release the resource to all adjacent workers (including any unit on top) in a
+        * even manner and taking in account for the worker's team's research level. This is effectively a worker mining.
+        *
+        * Workers adjacent will only receive resources if they can mine it. They will
+        * never receive more than they carry
+        *
+        * This function is called on cells in the order of uranium, coal, then wood resource deposits
+        *
+        *
+        * @param cell - a cell with a resource
         """
-        # TODO: Implement
-        pass
+        if (originalCell.hasResource()):
+            type = originalCell.resource.type;
+            cells = [originalCell, self.map.getAdjacentCells(originalCell)]
+            workersToReceiveResources = []
+            for cell in cells:
+                if (cell.isCityTile() and cell.units.size > 0 and self.state["teamStates"][cell.citytile.team]["researched"][type]):
+                    workersToReceiveResources.append(cell.citytile)
+                else:
+                    for unit in cell.units:
+                        # note, this loop only appends one unit to the array since we can only have one unit per city tile
+                        if unit.type == Unit.Type.WORKER and self.state["teamStates"][unit.team]["researched"][type]:
+                            workersToReceiveResources.append(unit)
+
+            def isWorker(pet):
+                return isinstance(pet, Worker)
+            
+            rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type.upper()]
+            conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type.upper()]
+
+            # find out how many resources to distribute and release
+            amountToDistribute = rate * len(workersToReceiveResources)
+            amountDistributed = 0
+            # distribute only as much as the cell contains
+            amountToDistribute = min(
+                amountToDistribute,
+                originalCell.resource.amount
+            )
+
+            # distribute resources as evenly as possible
+
+            # sort from least space to most so those with more capacity will have the correct distribution of resources before we reach cargo capacity
+            workersToReceiveResources.sort(key=lambda s: s.getCargoSpaceLeft(), reverse=True) # TODO: Validate Cities get prioritized correctly here. Cities get last priority with this.
+            
+            for i, entity in enumerate(workersToReceiveResources):
+                spaceLeft = entity.getCargoSpaceLeft()
+                maxReceivable = amountToDistribute / (len(workersToReceiveResources) - i)
+                
+                distributeAmount = min(spaceLeft, maxReceivable, rate)
+                # we give workers a floored amount for sake of integers and effectiely waste the remainder
+                if (isWorker(entity)):
+                    entity.cargo[type] += math.floor(distributeAmount)
+                else:
+                    city = self.cities.get(entity.cityid)
+                    city.fuel += conversionRate * math.floor(distributeAmount)
+
+                amountDistributed += distributeAmount
+
+                # update stats
+                self.stats["teamStats"][entity.team]["resourcesCollected"][type] += math.floor(distributeAmount)
+
+                # subtract how much was given.
+                amountToDistribute -= distributeAmount
+
+            originalCell.resource.amount -= amountDistributed
+
+        
     
     def handleResourceDeposit(self, unit):
         """
         Auto deposit resources of unit to tile it is on
         Implements src/Game/index.ts -> Game.handleResourceDeposit()
         """
-        # TODO: Implement
-        pass
+        cell = self.map.getCellByPos(unit.pos)
+        if (cell.isCityTile() and cell.citytile.team == unit.team):
+            city = self.cities.get(cell.citytile.cityid)
+            fuelGained = 0
+            fuelGained += unit.cargo["wood"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
+            fuelGained += unit.cargo["coal"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
+            fuelGained += unit.cargo["uranium"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
+            city.fuel += fuelGained
+
+            self.stats["teamStats"][unit.team]["fuelGenerated"] += fuelGained
+
+            unit.cargo = {
+                "wood": 0,
+                "uranium": 0,
+                "coal": 0,
+            }
 
     def getTeamsUnits(self, team):
         """
