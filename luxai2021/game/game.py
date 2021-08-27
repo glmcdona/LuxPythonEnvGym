@@ -511,90 +511,113 @@ class Game:
                     for collidingAction in collidingActions:
                         revertAction(collidingAction)
 
-        # TODO: Continue translating here!
-        '''
-        actionedCells = Array.from(cellsToActionsToThere.keys())
-        for (cell of actionedCells) {
-        currActions = cellsToActionsToThere.get(cell)
-        actionsToRevert = []
-        if (currActions !== undefined) {
-            if (currActions.length > 1) {
-            # only revert actions that are going to the same tile that is not a city
-            # if going to the same city tile, we know those actions are from same team units, and is allowed
-            if (!cell.isCityTile()) {
-                currActions.forEach((action) => {
-                actionsToRevert.push(action)
-                })
-            }
-            } else if (currActions.length === 1) {
-            # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
-            action = currActions[0]
-            if (!cell.isCityTile()) {
-                if (cell.units.size === 1) {
-                let unitThereIsStill = true
-                cell.units.forEach((unit) => {
-                    if (movingUnits.has(unit.id)) {
-                    unitThereIsStill = false
-                    }
-                })
-                if (unitThereIsStill) {
-                    actionsToRevert.push(action)
-                }
-                }
-            }
-            }
-        }
-        # if there are collisions, revert those actions and remove the mapping
-        actionsToRevert.forEach((action) => {
-            revertAction()
-        })
-        actionsToRevert.forEach((action) => {
-            cellsToActionsToThere.delete(action.newcell)
-        })
-        }
-
-        prunedActions: Array<MoveAction> = []
-        cellsToActionsToThere.forEach((currActions) => {
-        prunedActions.push(...currActions)
-        })
+        actionedCells = list(cellsToActionsToThere.keys())
+        for cell in actionedCells:
+            currActions = cellsToActionsToThere[cell]
+            actionsToRevert = []
+            if (currActions != None):
+                if (currActions.length > 1):
+                    # only revert actions that are going to the same tile that is not a city
+                    # if going to the same city tile, we know those actions are from same team units, and is allowed
+                    if (not cell.isCityTile()):
+                        actionsToRevert += currActions
+                elif (currActions.length == 1):
+                    # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
+                    action = currActions[0]
+                    if (not cell.isCityTile()):
+                        if (cell.units.size == 1):
+                            unitThereIsStill = True
+                            for unit in cell.units:
+                                if (movingUnits.has(unit.id)):
+                                    unitThereIsStill = False
+                            if (unitThereIsStill):
+                                actionsToRevert.push(action)
+            
+            # if there are collisions, revert those actions and remove the mapping
+            for action in actionsToRevert:
+                revertAction(action)
+            for action in actionsToRevert:
+                cellsToActionsToThere.delete(action.newcell)
+        
+        prunedActions = []
+        for currActions in cellsToActionsToThere:
+            prunedActions.append(currActions)
 
         return prunedActions
-        '''
+        
 
-    
     def isNight(self):
         """
         Is it night.
         Implements src/Game/index.ts -> Game.isNight()
         """
-        # TODO: Implement
-        pass
+        dayLength = self.configs["parameters"]["DAY_LENGTH"]
+        cycleLength = dayLength + self.configs["parameters"]["NIGHT_LENGTH"]
+        return (self.state["turn"] % cycleLength) >= dayLength
     
-    
-    '''
-    def _end_turn(self):
-        print("D_FINISH")
-
-    def _reset_player_states(self):
-        self.players[0].units = []
-        self.players[0].cities = {}
-        self.players[0].city_tile_count = 0
-        self.players[1].units = []
-        self.players[1].cities = {}
-        self.players[1].city_tile_count = 0
-
-
-    def step_unit(self):
+    def toStateObject(self):
         """
-        Run the game simulation for a single unit.
+        Serialize state
+        Implements src/Game/index.ts -> Game.toStateObject()
         """
-        # TODO: Implement single step of a unit
-        pass
+        cities = {}
+        for city in self.cities:
+            cityCells = []
+            for cell in city.citycells:
+                cityCells.append({
+                    "x": cell.pos.x,
+                    "y": cell.pos.y,
+                    "cooldown": cell.citytile.cooldown,
+                })
+            
+            cities[city.id] = {
+                "id": city.id,
+                "fuel": city.fuel,
+                "lightupkeep": city.getLightUpkeep(),
+                "team": city.team,
+                "cityCells": cityCells
+            }
+        
+        state = {
+            "turn": self.state.turn,
+            "globalCityIDCount": self.globalCityIDCount,
+            "globalUnitIDCount": self.globalUnitIDCount,
+            "teamStats": {
+                Constants.TEAM.A: {
+                    "researchPoints": 0,
+                    "units": {},
+                    "researched": {
+                        "wood": True,
+                        "coal": False,
+                        "uranium": False,
+                    },
+                },
+                Constants.TEAM.B: {
+                    "researchPoints": 0,
+                    "units": {},
+                    "researched": {
+                        "wood": True,
+                        "coal": False,
+                        "uranium": False,
+                    },
+                },
+            },
+            map: self.map.toStateObject(),
+            "cities" : cities,
+        }
 
-    def step(self):
-        """
-        Run the game simulation for a full turn
-        """
-        # TODO: Implement single step of a unit
-        pass
-    '''
+        teams = [Constants.TEAM.A, Constants.TEAM.B];
+        for team in teams:
+            for unit in self.state["teamStates"][team]["units"]:
+                state["teamStates"][team]["units"][unit.id] = {
+                    "cargo": dict(unit.cargo),
+                    "cooldown": unit.cooldown,
+                    "x": unit.pos.x,
+                    "y": unit.pos.y,
+                    "type": unit.type,
+                }
+            
+            state["teamStates"][team]["researchPoints"] = self.state["teamStates"][team]["researchPoints"]
+            state["teamStates"][team]["researched"] = dict( self.state["teamStates"][team]["researched"] )
+
+        return state
