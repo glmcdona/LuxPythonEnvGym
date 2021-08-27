@@ -76,3 +76,25 @@ class TestMap(TestCase):
         print("Passed game creation test!")
         return True
 
+    def test_gen_game_seed(self):
+        print("Testing generating specific game...")
+        LuxMatchConfigs = {
+            "mapType": Constants.MAP_TYPES.RANDOM,
+            "storeReplay": True,
+            "seed": 123456789,
+            "debug": False,
+            "debugDelay": 500,
+            "runProfiler": False,
+            "compressReplay": False,
+            "debugAnnotations": False,
+            "statefulReplay": False,
+            "parameters": GAME_CONSTANTS["PARAMETERS"],
+        }
+
+        game = generateGame(LuxMatchConfigs)
+
+        # Print the game map
+        print("Map for seed 123456789:")
+        print(game.map.getMapString())
+        return True
+

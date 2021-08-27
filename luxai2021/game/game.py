@@ -391,49 +391,175 @@ class Game:
         Get list of units.
         Implements src/Game/index.ts -> Game.getTeamsUnits()
         """
-        # TODO: Implement
-        pass
+        return self.state["teamStates"][team]["units"]
 
     def getUnit(self, team, unitid):
         """
         Get the specific unit.
         Implements src/Game/index.ts -> Game.getUnit()
         """
-        # TODO: Implement
-        pass
+        return self.state["teamStates"][team]["units"][unitid]
     
-    def transferResources(self, team, src_unitid, dest_unitid, resource_type, amount):
+    def transferResources(self, team, srcID, destID, resourceType, amount):
         """
         Transfer resouces on a given team between 2 units. This does not check adjacency requirement, but its expected
         that the 2 units are adjacent. This allows for simultaneous movement of 1 unit and transfer of another
         Implements src/Game/index.ts -> transferResources()
         """
-        # TODO: Implement
-        pass
+        srcunit = self.getUnit(team, srcID)
+        destunit = self.getUnit(team, destID)
+        # the amount to actually transfer is the minimum of:
+        transferAmount = math.min(
+            # the amount requested
+            amount,
+            # and all that we have if that's less than requested
+            srcunit.cargo[resourceType],
+            # and no more than destination-unit's remaining cargo-space
+            destunit.getCargoSpaceLeft()
+        )
+        srcunit.cargo[resourceType] -= transferAmount
+        destunit.cargo[resourceType] += transferAmount
+    
+    def destroyCity(self, team, cityID):
+        """
+        Destroys the unit with this id and team and removes from tile
+        Implements src/Game/index.ts -> Game.destroyCity()
+        """
+        city = self.cities.get(cityID)
+        self.cities.pop(cityID)
+        for cell in city.citycells:
+            cell.citytile = None
+            cell.road = self.configs.parameters.MIN_ROAD
     
     def destroyUnit(self, team, unitid):
         """
         Destroys the unit with this id and team and removes from tile
         Implements src/Game/index.ts -> Game.destroyUnit()
         """
-        # TODO: Implement
-        pass
+        unit = self.getUnit(team, unitid);
+        self.map.getCellByPos(unit.pos).units.pop(unitid)
+        self.state["teamStates"][team]["units"].pop(unitid)
 
     def regenerateTrees(self):
         """
         Regenerate trees
         Implements src/Game/index.ts -> Game.regenerateTrees()
+        /**
+        * regenerates trees on map according to the following formula
+        * let max_wood_amount be base and the current amount be curr
+        *
+        * then at the end of each turn after all moves and all resource collection is finished,
+        * the wood at a wood tile grows to ceil(min(curr * 1.03, base))
+        */
         """
-        # TODO: Implement
-        pass
+        for cell in self.map.resources_by_type[Constants.RESOURCE_TYPES.WOOD]:
+            # add this condition so we let forests near a city start large (but not regrow until below a max)
+            if (cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]):
+                cell.resource.amount = math.ceil(
+                    math.min(
+                        cell.resource.amount * self.configs["parameters"]["WOOD_GROWTH_RATE"],
+                        self.configs.parameters.MAX_WOOD_AMOUNT
+                    )
+                )
 
     def handleMovementActions(self, actions, match):
         """
         Process given move actions and returns a pruned array of actions that can all be executed with no collisions
         Implements src/Game/index.ts -> Game.handleMovementActions()
+        /**
+        * Algo:
+        *
+        * iterate through all moves and store a mapping from cell to the actions that will cause a unit to move there
+        *
+        * for each cell that has multiple mapped to actions, we remove all actions as that cell is a "bump" cell
+        * where no units can get there because they all bumped into each other
+        *
+        * for all removed actions for that particular cell, find the cell the unit that wants to execute the action is
+        * currently at, labeled `origcell`. Revert these removed actions by first getting all the actions mapped from
+        * `origcell` and then deleting that mapping, and then recursively reverting the actions mapped from `origcell`
+        *
+        */
         """
-        # TODO: Implement
-        pass
+        cellsToActionsToThere = {}
+        movingUnits = set()
+
+        for action in actions:
+            newcell = action.newcell
+            if newcell in cellsToActionsToThere:
+                cellsToActionsToThere[newcell] += [action]
+            else:
+                cellsToActionsToThere[newcell] = [action]
+            
+            movingUnits.add(action.unitid)
+
+        def revertAction(action):
+            # reverts a given action such that cellsToActionsToThere has no collisions due to action and all related actions
+            if (match):
+                match.log.warn(f"turn {{state.turn}} Unit {{action.unitid}} collided when trying to move {{action.direction}} to ({{action.newcell.pos.x}}, {{action.newcell.pos.y}})")
+            
+            origcell = self.map.getCellByPos(
+                self.getUnit(action.team, action.unitid).pos
+            )
+
+            # get the colliding actions caused by a revert of the given action and then delete them from the mapped origcell provided it is not a city tile
+            collidingActions = cellsToActionsToThere[origcell] if origcell in cellsToActionsToThere else None
+            if (not origcell.isCityTile()):
+                cellsToActionsToThere.pop(origcell)
+
+                if (collidingActions is not None):
+                    # for each colliding action, revert it.
+                    for collidingAction in collidingActions:
+                        revertAction(collidingAction)
+
+        # TODO: Continue translating here!
+        '''
+        actionedCells = Array.from(cellsToActionsToThere.keys())
+        for (cell of actionedCells) {
+        currActions = cellsToActionsToThere.get(cell)
+        actionsToRevert = []
+        if (currActions !== undefined) {
+            if (currActions.length > 1) {
+            # only revert actions that are going to the same tile that is not a city
+            # if going to the same city tile, we know those actions are from same team units, and is allowed
+            if (!cell.isCityTile()) {
+                currActions.forEach((action) => {
+                actionsToRevert.push(action)
+                })
+            }
+            } else if (currActions.length === 1) {
+            # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
+            action = currActions[0]
+            if (!cell.isCityTile()) {
+                if (cell.units.size === 1) {
+                let unitThereIsStill = true
+                cell.units.forEach((unit) => {
+                    if (movingUnits.has(unit.id)) {
+                    unitThereIsStill = false
+                    }
+                })
+                if (unitThereIsStill) {
+                    actionsToRevert.push(action)
+                }
+                }
+            }
+            }
+        }
+        # if there are collisions, revert those actions and remove the mapping
+        actionsToRevert.forEach((action) => {
+            revertAction()
+        })
+        actionsToRevert.forEach((action) => {
+            cellsToActionsToThere.delete(action.newcell)
+        })
+        }
+
+        prunedActions: Array<MoveAction> = []
+        cellsToActionsToThere.forEach((currActions) => {
+        prunedActions.push(...currActions)
+        })
+
+        return prunedActions
+        '''
 
     
     def isNight(self):
