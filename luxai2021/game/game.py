@@ -8,7 +8,6 @@ import math
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 
-# TODO: Add all the game logic here!
 class Game:
     # Mirrored Game constant enums. All the available agent actions with specifications as to what they do and restrictions.
     class ACTIONS:
