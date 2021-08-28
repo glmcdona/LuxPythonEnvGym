@@ -11,7 +11,8 @@ class Action:
         self.team = team
 
 class MoveAction(Action):
-    def __init__(self, action, team, unitid, direction, newcell):
+    def __init__(self, team, unitid, direction, newcell):
+        action = Constants.ACTIONS.MOVE
         self.unitid = unitid
         self.direction = direction
         self.newcell = newcell
@@ -25,22 +26,26 @@ class SpawnAction(Action):
         super().__init__(action, team)
 
 class SpawnCartAction(SpawnAction):
-    def __init__(self, action, team, unitid, x, y):
+    def __init__(self, team, unitid, x, y):
+        action = Constants.ACTIONS.BUILD_CART
         self.type = UNIT_TYPES.CART
         super().__init__(action, team, unitid, x, y)
 
 class SpawnWorkerAction(SpawnAction):
     def __init__(self, action, team, unitid, x, y):
+        action = Constants.ACTIONS.BUILD_WORKER
         self.type = UNIT_TYPES.WORKER
         super().__init__(action, team, unitid, x, y)
 
 class SpawnCityAction(Action):
-    def __init__(self, action, team, unitid):
+    def __init__(self, team, unitid):
+        action = Constants.ACTIONS.BUILD_CITY
         self.unitid = unitid
         super().__init__(action, team)
 
 class TransferAction(Action):
-    def __init__(self, action, team, srcID, destID, resourceType, amount):
+    def __init__(self, team, srcID, destID, resourceType, amount):
+        action = Constants.ACTIONS.TRANSFER
         self.srcID = srcID
         self.destID = destID
         self.resourceType = resourceType
@@ -48,12 +53,14 @@ class TransferAction(Action):
         super().__init__(action, team)
 
 class PillageAction(Action):
-    def __init__(self, action, team, unitid):
+    def __init__(self, team, unitid):
+        action = Constants.ACTIONS.PILLAGE
         self.unitid = unitid
         super().__init__(action, team)
 
 class ResearchAction(Action):
-    def __init__(self, action, team, x, y):
+    def __init__(self, team, x, y):
+        action = Constants.ACTIONS.RESEARCH
         self.x = x
         self.y = y
         super().__init__(action, team)

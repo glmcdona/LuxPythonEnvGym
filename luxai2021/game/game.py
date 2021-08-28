@@ -1,6 +1,7 @@
 import gym
 from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
+import traceback
 
 from .unit import Unit, Worker, Cart
 from .city import City
@@ -101,19 +102,202 @@ class Game:
 
     def runTurnWithActions(self, actions):
         """
-        Rusn the game turn with the specified actions
+        Runs a single game turn with the specified actions
+        Returns:
+            True if game is still running
+            False if game is over
         """
         if "log" in self.configs and self.configs["log"]:
-            self.log('Processing turn ' + self.game.state.turn)
+            self.log('Processing turn ' + self.game.state["turn"])
         
         # Loop over commands and validate and map into internal action representations
         actionsMap = {}
 
-        # TODO: Continue game logic here
+        accumulatedActionStats = self._genInitialAccumulatedActionStats()
+        for i, action in enumerate(actions):
+            # get the command and the agent that issued it and handle appropriately
+            try:
+                action = self.validateCommand(
+                    actions[i],
+                    accumulatedActionStats
+                )
+                if (action is not None):
+                    if action.action in actionsMap:
+                        actionsMap[action.action].append(action)
+                    else:
+                        actionsMap[action.action] = [action]
+            except Exception as e:
+                self.log(repr(e))
+
+        # give units and city tiles their validated actions to use
+        if Constants.ACTIONS.BUILD_CITY in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.BUILD_CITY]:
+                self.getUnit(action.team, action.unitid).giveAction(action)
+        
+        if Constants.ACTIONS.BUILD_WORKER in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.BUILD_WORKER]:
+                citytile = self.map.getCell(action.x, action.y).citytile
+                citytile.giveAction(action)
+        
+        if Constants.ACTIONS.BUILD_CART in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.BUILD_CART]:
+                citytile = self.map.getCell(action.x, action.y).citytile
+                citytile.giveAction(action)
+        
+        if Constants.ACTIONS.PILLAGE in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.PILLAGE]:
+                self.getUnit(action.team, action.unitid).giveAction(action)
+        
+        if Constants.ACTIONS.RESEARCH in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.RESEARCH]:
+                citytile = self.map.getCell(action.x, action.y).citytile
+                citytile.giveAction(action)
+        
+        if Constants.ACTIONS.TRANSFER in actionsMap:
+            for action in actionsMap[Constants.ACTIONS.TRANSFER]:
+                self.getUnit(action.team, action.srcID).giveAction(action)
+
+        if Constants.ACTIONS.MOVE in actionsMap:
+            prunedMoveActions = self.handleMovementActions(
+                actionsMap[Constants.ACTIONS.MOVE]
+            )
+        else:
+            prunedMoveActions = []
+
+        for action in prunedMoveActions:
+            # if direction is center, ignore it
+            if (action.direction != Constants.DIRECTIONS.CENTER):
+                self.getUnit(action.team, action.unitid).giveAction(action)
+
+        # now we go through every actionable entity and execute actions
+        for city in self.cities.values():
+            for citycell in city.citycells:
+                try:
+                    citycell.citytile.handleTurn(self)
+                except Exception as e:
+                    self.log("Critical error handling city turn.")
+                    self.log(repr(e))
+                    self.log(traceback.print_exc())
+
+        teams = [Constants.TEAM.A, Constants.TEAM.B]
+        for team in teams:
+            for unit in self.state["teamStates"][team]["units"].values():
+                try:
+                    unit.handleTurn(self)
+                except Exception as e:
+                    self.log("Critical error handling unit turn.")
+                    self.log(repr(e))
+                    self.log(traceback.print_exc())
+
+        # distribute all resources in order of decreasing fuel efficiency
+        self.distributeAllResources()
+
+        # now we make all units with cargo drop all resources on the city they are standing on
+        for team in teams:
+            for unit in self.state["teamStates"][team]["units"].values():
+                self.handleResourceDeposit(unit)
+
+        if (self.isNight()):
+            self.handleNight(self.state)
+
+        # remove resources that are depleted from map
+        newResourcesMap = []
+        self.map.resources_by_type = {}
+        for i in range(len(self.map.resources)):
+            cell = self.map.resources[i]
+            if (cell.resource.amount > 0):
+                newResourcesMap.append(cell)
+                if cell.resource.type not in self.map.resources_by_type:
+                    self.map.resources_by_type[cell.resource.type] = [cell]
+                else:
+                    self.map.resources_by_type[cell.resource.type].append(cell)
+
+        self.map.resources = newResourcesMap
+
+        # regenerate forests
+        self.regenerateTrees()
+
+        matchOver = self.matchOver()
+
+        self.state["turn"] += 1
+
+        # store state
+        # TODO: IMPLEMENT THIS
+        #if (self.replay.statefulReplay):
+        #    self.replay.writeState(self)
+
+        self.runCooldowns()
+
+        if (matchOver):
+            #if (self.replay):
+            #    self.replay.writeOut(self.getResults(match))
+            return True
+
+        self.log('Beginning turn %s' % self.state["turn"])
+        return False
 
 
+    def handleNight(self):
+        """
+        Implements /src/logic.ts -> handleNight()
+        /**
+        * Handle nightfall and update state accordingly
+        */
+        """
+        for city in self.cities.values():
+            # if city does not have enough fuel, destroy it
+            # TODO, probably add this event to replay
+            if (city.fuel < city.getLightUpkeep()):
+                self.destroyCity(city.id)
+            else:
+                city.fuel -= city.getLightUpkeep()
+        
+        for team in [Constants.TEAM.A, Constants.TEAM.B]:
+            for unit in self.state["teamStates"][team]["units"].values():
+                # TODO: add condition for different light upkeep for units stacked on a city.
+                if (not self.map.getCellByPos(unit.pos).isCityTile()):
+                    if (not unit.spendFuelToSurvive()):
+                        # delete unit
+                        self.destroyUnit(unit.team, unit.id)
+
+    def runCooldowns(self):
+        """
+        Implements /src/Game/index.ts -> runCooldowns()
+        """
+        for team in [Constants.TEAM.A, Constants.TEAM.B]:
+            units = self.getTeamsUnits(team).values()
+            for unit in units:
+                unit.cooldown -= self.map.getCellByPos(unit.pos).getRoad()
+                unit.cooldown = max(unit.cooldown - 1, 0)
+    
+    def matchOver(self):
+        """
+        Implements /src/logic.ts -> matchOver()
+        /**
+        * Determine if match is over or not
+        */
+        """
+
+        if (self.state["turn"] >= self.configs["parameters"]["MAX_DAYS"] - 1):
+            return True
+        
+        # over if at least one team has no units left or city tiles
+        teams = [Constants.TEAM.A, Constants.TEAM.B]
+        cityCount = [0, 0]
+
+        for city in self.cities.values():
+            cityCount[city.team] += 1
+
+        for team in teams:
+            if len(self.getTeamsUnits(team)) + cityCount[team] == 0:
+                return True
+
+        return False
 
 
+    def log(self, text):
+        ''' Logs the specified text'''
+        print(text) # TODO: Log to file as well?
 
     def validateCommand(self, cmd, accumulatedActionStats=None):
         """
@@ -124,7 +308,7 @@ class Game:
             accumulatedActionStats = self._genInitialAccumulatedActionStats()
         
         # TODO: Implement
-        pass
+        return cmd
 
     def workerUnitCapReached(self, team, offset = 0):
         """
@@ -132,7 +316,7 @@ class Game:
         Implements src/Game/index.ts -> Game.workerUnitCapReached()
         """
         team_city_count = 0
-        for city in self.cities:
+        for city in self.cities.values():
             if city.team == team:
                 team_city_count += 1
         
@@ -226,7 +410,7 @@ class Game:
             cell.setCityTile(team, cityid)
 
             # update adjacency counts for bonuses
-            cell.citytile.adjacentCityTiles = adjSameTeamCityTiles.length
+            cell.citytile.adjacentCityTiles = len(adjSameTeamCityTiles)
             for cell in adjSameTeamCityTiles:
                 cell.citytile.adjacentCityTiles += 1
             city.addCityTile(cell)
@@ -291,15 +475,15 @@ class Game:
         """
         if (originalCell.hasResource()):
             type = originalCell.resource.type;
-            cells = [originalCell, self.map.getAdjacentCells(originalCell)]
+            cells = [originalCell] + self.map.getAdjacentCells(originalCell)
             workersToReceiveResources = []
             for cell in cells:
-                if (cell.isCityTile() and cell.units.size > 0 and self.state["teamStates"][cell.citytile.team]["researched"][type]):
+                if (cell.isCityTile() and len(cell.units) > 0 and self.state["teamStates"][cell.citytile.team]["researched"][type]):
                     workersToReceiveResources.append(cell.citytile)
                 else:
-                    for unit in cell.units:
+                    for unit in cell.units.values():
                         # note, this loop only appends one unit to the array since we can only have one unit per city tile
-                        if unit.type == Unit.Type.WORKER and self.state["teamStates"][unit.team]["researched"][type]:
+                        if unit.type == Constants.UNIT_TYPES.WORKER and self.state["teamStates"][unit.team]["researched"][type]:
                             workersToReceiveResources.append(unit)
 
             def isWorker(pet):
@@ -411,7 +595,7 @@ class Game:
         self.cities.pop(cityID)
         for cell in city.citycells:
             cell.citytile = None
-            cell.road = self.configs.parameters.MIN_ROAD
+            cell.road = self.configs["parameters"]["MIN_ROAD"]
     
     def destroyUnit(self, team, unitid):
         """
@@ -438,13 +622,13 @@ class Game:
             # add this condition so we let forests near a city start large (but not regrow until below a max)
             if (cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]):
                 cell.resource.amount = math.ceil(
-                    math.min(
+                    min(
                         cell.resource.amount * self.configs["parameters"]["WOOD_GROWTH_RATE"],
-                        self.configs.parameters.MAX_WOOD_AMOUNT
+                        self.configs["parameters"]["MAX_WOOD_AMOUNT"]
                     )
                 )
 
-    def handleMovementActions(self, actions, match):
+    def handleMovementActions(self, actions):
         """
         Process given move actions and returns a pruned array of actions that can all be executed with no collisions
         Implements src/Game/index.ts -> Game.handleMovementActions()
@@ -476,8 +660,7 @@ class Game:
 
         def revertAction(action):
             # reverts a given action such that cellsToActionsToThere has no collisions due to action and all related actions
-            if (match):
-                match.log.warn(f"turn {{state.turn}} Unit {{action.unitid}} collided when trying to move {{action.direction}} to ({{action.newcell.pos.x}}, {{action.newcell.pos.y}})")
+            self.log(f"turn {{self.state['turn']}} Unit {{action.unitid}} collided when trying to move {{action.direction}} to ({{action.newcell.pos.x}}, {{action.newcell.pos.y}})")
             
             origcell = self.map.getCellByPos(
                 self.getUnit(action.team, action.unitid).pos
@@ -498,18 +681,18 @@ class Game:
             currActions = cellsToActionsToThere[cell]
             actionsToRevert = []
             if (currActions != None):
-                if (currActions.length > 1):
+                if (len(currActions) > 1):
                     # only revert actions that are going to the same tile that is not a city
                     # if going to the same city tile, we know those actions are from same team units, and is allowed
                     if (not cell.isCityTile()):
                         actionsToRevert += currActions
-                elif (currActions.length == 1):
+                elif (len(currActions) == 1):
                     # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
                     action = currActions[0]
                     if (not cell.isCityTile()):
-                        if (cell.units.size == 1):
+                        if (len(cell.units) == 1):
                             unitThereIsStill = True
-                            for unit in cell.units:
+                            for unit in cell.units.values():
                                 if (movingUnits.has(unit.id)):
                                     unitThereIsStill = False
                             if (unitThereIsStill):
@@ -519,11 +702,11 @@ class Game:
             for action in actionsToRevert:
                 revertAction(action)
             for action in actionsToRevert:
-                cellsToActionsToThere.delete(action.newcell)
+                cellsToActionsToThere.pop(action.newcell)
         
         prunedActions = []
-        for currActions in cellsToActionsToThere:
-            prunedActions.append(currActions)
+        for currActions in cellsToActionsToThere.values():
+            prunedActions += currActions
 
         return prunedActions
         
@@ -543,7 +726,7 @@ class Game:
         Implements src/Game/index.ts -> Game.toStateObject()
         """
         cities = {}
-        for city in self.cities:
+        for city in self.cities.values():
             cityCells = []
             for cell in city.citycells:
                 cityCells.append({
@@ -561,7 +744,7 @@ class Game:
             }
         
         state = {
-            "turn": self.state.turn,
+            "turn": self.state["turn"],
             "globalCityIDCount": self.globalCityIDCount,
             "globalUnitIDCount": self.globalUnitIDCount,
             "teamStats": {
@@ -590,7 +773,7 @@ class Game:
 
         teams = [Constants.TEAM.A, Constants.TEAM.B];
         for team in teams:
-            for unit in self.state["teamStates"][team]["units"]:
+            for unit in self.state["teamStates"][team]["units"].values():
                 state["teamStates"][team]["units"][unit.id] = {
                     "cargo": dict(unit.cargo),
                     "cooldown": unit.cooldown,
