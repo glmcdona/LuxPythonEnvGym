@@ -14,16 +14,16 @@ class Match():
         self.game = None
         self.agents = [agent1, agent2]
 
-        self.initialize()
+        self.reset()
 
     # Initialization step of each match
-    def initialize(self):
+    def reset(self):
         # Generate the game and map
         self.game = generateGame(self.configs)
 
         # Initialize the agents
         for agent in self.agents:
-            agent.initialize(self.game, self.configs)
+            agent.reset(self.game, self.configs)
 
 
     def log(self, text):
