@@ -99,24 +99,17 @@ class Game:
             }
     
 
-    def run_game_to_next_action(self):
+    def runTurnWithActions(self, actions):
         """
-        This runs a game turn as a generator.
+        Rusn the game turn with the specified actions
         """
         if "log" in self.configs and self.configs["log"]:
             self.log('Processing turn ' + self.game.state.turn)
         
-        # Ask each agent for their set of actions
-        for agent in self.agents:
-            if isinstance(agent, gym.Env):
-                # Ask for a control decision per unit
-                actions = agent.
-
-
-
-
         # Loop over commands and validate and map into internal action representations
         actionsMap = {}
+
+        # TODO: Continue game logic here
 
 
 

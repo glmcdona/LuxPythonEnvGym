@@ -1,5 +1,6 @@
 ''' Implements the base class for a training Agent '''
 
+import time
 from typing import Match
 from .game import Game
 import random
@@ -23,13 +24,13 @@ class AgentOpponent():
 
 class MatchController():
     def __init__(self, game, agents = [None, None]) -> None:
-        self.action_buffer = []
+        self.actionBuffer = []
         self.game = game
         self.agents = agents
 
-    def take_action(self, action):
+    def take_action(self, action, computeTimeTaken=0.0):
         """ Adds the specified action to the action buffer """
-        self.action_buffer.append(action)
+        self.actionBuffer.append(action)
     
     def run_to_next_observation(self):
         """ 
@@ -42,14 +43,17 @@ class MatchController():
                 # Process this turn
                 
                 # Handle each team making decisions for their units and cities for this turn
+                actionsTimeTaken = [0.0, 0.0] # Tracks the amount of time used per agent per turn
                 for team in range(2):
                     newTurn = True
                     is_opponent = issubclass(self.agents[team], AgentOpponent) or isinstance(self.agents[team], AgentOpponent)
                     units = self.state["teamStates"][team]["units"]
+                    start_time = time.time()
+
                     for unit in units:
                         if is_opponent:
                             # Call the opponent directly for unit decision
-                            self.action_buffer.append( self.agents[team].decide_action(unit.id, None, unit.team, newTurn) )
+                            self.actionBuffer.append( self.agents[team].decide_action(unit.id, None, unit.team, newTurn) )
                         elif self.agents[team] == None:
                             # RL training agent that is controlling the simulation
                             # The enviornment then handles this unit, and calls take_action() to buffer an requested action
@@ -63,7 +67,7 @@ class MatchController():
                         for city_tile in city.citytiles:
                             if is_opponent:
                                 # Call the opponent directly for unit decision
-                                self.action_buffer.append( self.agents[team].decide_action(None, city_tile.id, city_tile.team, newTurn) )
+                                self.actionBuffer.append( self.agents[team].decide_action(None, city_tile.id, city_tile.team, newTurn) )
                             elif self.agents[team] == None:
                                 # RL training agent that is controlling the simulation
                                 # The enviornment then handles this city, and calls take_action() to buffer an requested action
@@ -71,13 +75,17 @@ class MatchController():
                             else:
                                 raise Exception("Invalid agent type. Should be None for the training agent or inherit from 'AgentOpponent' for an opponent.")
                         newTurn = False
+                    
+                    actionsTimeTaken[team] = time.time() - start_time
+                
+                print("Time taken per agent for turn: (%.3fs, %.3fs)", actionsTimeTaken[0], actionsTimeTaken[1])
                 
                 # Now let the game actually process the requested actions
-                self.game.runActions(self.action_buffer) # TODO: Implement this function
-                self.action_buffer = []
+                #self.game.runActions(self.actionBuffer) # TODO: Implement this function
+                self.actionBuffer = []
 
                 # Now ask the game to process the turn
-                self.game.runTurn() # TODO: Implement this function
+                #self.game.runTurn() # TODO: Implement this function
 
 
 class LuxEnvironment(gym.Env):
@@ -147,7 +155,7 @@ class LuxEnvironment(gym.Env):
         (unitid, citytileid, team, isNewTurn) = self.matchController.run_to_next_observation()
 
         if isNewTurn:
-            # If it's a new turn, update any per-turn fixed observation space that doesn't change per unit/city controlled
+            # It's a new turn this event, update any per-turn fixed observation space that doesn't change per unit/city controlled
             pass
         
         # TODO: Call the observation space functions
