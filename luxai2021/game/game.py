@@ -1,3 +1,4 @@
+import gym
 from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
 
@@ -9,53 +10,15 @@ INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 
 class Game:
-    # Mirrored Game constant enums. All the available agent actions with specifications as to what they do and restrictions.
-    class ACTIONS:
-        #
-        # Formatted as `m unitid direction`. unitid should be valid and should have empty space in that direction. moves
-        # unit with id unitid in the direction
-        #
-        MOVE = 'm',
-        #
-        # Formatted as `r x y`. (x,y) should be an owned city tile, the city tile is commanded to research for
-        # the next X turns
-        #/
-        RESEARCH = 'r',
-        # Formatted as `bw x y`. (x,y) should be an owned city tile, where worker is to be built #/
-        BUILD_WORKER = 'bw',
-        # Formatted as `bc x y`. (x,y) should be an owned city tile, where the cart is to be built #/
-        BUILD_CART = 'bc',
-        #
-        # Formatted as `bcity unitid`. builds city at unitid's pos, unitid should be
-        # friendly owned unit that is a worker
-        #/
-        BUILD_CITY = 'bcity',
-        #
-        # Formatted as `t source_unitid destination_unitid resource_type amount`. Both units in transfer should be
-        # adjacent. If command valid, it will transfer as much as possible with a max of the amount specified
-        #/
-        TRANSFER = 't',
-
-        # formatted as `p unitid`. Unit with the given unitid must be owned and pillages the tile they are on #/
-        PILLAGE = 'p',
-
-        # formatted as dc <x> <y> #/
-        DEBUG_ANNOTATE_CIRCLE = 'dc',
-        # formatted as dx <x> <y> #/
-        DEBUG_ANNOTATE_X = 'dx',
-        # formatted as dl <x1> <y1> <x2> <y2> #/
-        DEBUG_ANNOTATE_LINE = 'dl',
-        # formatted as dt <x> <y> <message> <fontsize> #/
-        DEBUG_ANNOTATE_TEXT = 'dt',
-        # formatted as dst <message> #/
-        DEBUG_ANNOTATE_SIDETEXT = 'dst'
-
-
-    def __init__(self, configs = None):
+    def __init__(self, configs = None, agents = []):
         # Initializations from src/Game/index.ts -> Game()
         self.configs = LuxMatchConfigs_Default
         self.configs.update(configs) # Override default config from specified config
+        self.agents = []
+        self.reset()
 
+    def reset(self):
+        ''' Resets the game for another game. '''
         self.globalCityIDCount = 0
         self.globalUnitIDCount = 0
         self.cities = {} # string -> City
@@ -112,7 +75,10 @@ class Game:
                 },
             }
         }
+
+        # Generate the map
         self.map = GameMap(self.configs)
+        self.map.generateMap(self)
 
     def _genInitialAccumulatedActionStats(self):
         """
@@ -132,6 +98,30 @@ class Game:
                 },
             }
     
+
+    def run_game_to_next_action(self):
+        """
+        This runs a game turn as a generator.
+        """
+        if "log" in self.configs and self.configs["log"]:
+            self.log('Processing turn ' + self.game.state.turn)
+        
+        # Ask each agent for their set of actions
+        for agent in self.agents:
+            if isinstance(agent, gym.Env):
+                # Ask for a control decision per unit
+                actions = agent.
+
+
+
+
+        # Loop over commands and validate and map into internal action representations
+        actionsMap = {}
+
+
+
+
+
     def validateCommand(self, cmd, accumulatedActionStats=None):
         """
         Returns an Action object if validated. If invalid, throws MatchWarn
