@@ -51,41 +51,40 @@ class MatchController():
                     start_time = time.time()
 
                     for unit in units:
-                        if is_opponent:
-                            # Call the opponent directly for unit decision
-                            self.actionBuffer.append( self.agents[team].decide_action(unit.id, None, unit.team, newTurn) )
-                        elif self.agents[team] == None:
-                            # RL training agent that is controlling the simulation
-                            # The enviornment then handles this unit, and calls take_action() to buffer an requested action
-                            yield (unit.id, None, unit.team, newTurn)
-                        else:
-                            raise Exception("Invalid agent type. Should be None for the training agent or inherit from 'AgentOpponent' for an opponent.")
-                        newTurn = False
+                        if unit.canAct():
+                            if is_opponent:
+                                # Call the opponent directly for unit decision
+                                self.actionBuffer.append( self.agents[team].decide_action(unit.id, None, unit.team, newTurn) )
+                            elif self.agents[team] == None:
+                                # RL training agent that is controlling the simulation
+                                # The enviornment then handles this unit, and calls take_action() to buffer an requested action
+                                yield (unit.id, None, unit.team, newTurn)
+                            else:
+                                raise Exception("Invalid agent type. Should be None for the training agent or inherit from 'AgentOpponent' for an opponent.")
+                            newTurn = False
                     
                     cities = self.state["teamStates"][team]["cities"]
                     for city in cities:
                         for city_tile in city.citytiles:
-                            if is_opponent:
-                                # Call the opponent directly for unit decision
-                                self.actionBuffer.append( self.agents[team].decide_action(None, city_tile.id, city_tile.team, newTurn) )
-                            elif self.agents[team] == None:
-                                # RL training agent that is controlling the simulation
-                                # The enviornment then handles this city, and calls take_action() to buffer an requested action
-                                yield (None, city_tile.id, city_tile.team, newTurn)
-                            else:
-                                raise Exception("Invalid agent type. Should be None for the training agent or inherit from 'AgentOpponent' for an opponent.")
-                        newTurn = False
+                            if city_tile.canAct():
+                                if is_opponent:
+                                    # Call the opponent directly for unit decision
+                                    self.actionBuffer.append( self.agents[team].decide_action(None, city_tile.id, city_tile.team, newTurn) )
+                                elif self.agents[team] == None:
+                                    # RL training agent that is controlling the simulation
+                                    # The enviornment then handles this city, and calls take_action() to buffer an requested action
+                                    yield (None, city_tile.id, city_tile.team, newTurn)
+                                else:
+                                    raise Exception("Invalid agent type. Should be None for the training agent or inherit from 'AgentOpponent' for an opponent.")
+                                newTurn = False
                     
                     actionsTimeTaken[team] = time.time() - start_time
                 
                 print("Time taken per agent for turn: (%.3fs, %.3fs)", actionsTimeTaken[0], actionsTimeTaken[1])
                 
-                # Now let the game actually process the requested actions
-                #self.game.runActions(self.actionBuffer) # TODO: Implement this function
+                # Now let the game actually process the requested actions and play the turn
+                #self.game.runTurnWithActions(self.actionBuffer) # TODO: Implement this function
                 self.actionBuffer = []
-
-                # Now ask the game to process the turn
-                #self.game.runTurn() # TODO: Implement this function
 
 
 class LuxEnvironment(gym.Env):
