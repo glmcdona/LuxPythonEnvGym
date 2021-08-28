@@ -13,6 +13,7 @@ UNIT_TYPES = Constants.UNIT_TYPES
 
 class Unit(Actionable):
     def __init__(self, x, y, type, team, configs, idcount):
+        super().__init__(configs)
         self.pos = Position(x, y)
         self.team = team
         self.type = type

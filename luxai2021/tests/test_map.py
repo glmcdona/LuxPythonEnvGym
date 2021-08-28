@@ -1,5 +1,6 @@
 
 
+from luxai2021.game.actions import MoveAction
 from unittest import TestCase
 
 import random
@@ -65,5 +66,34 @@ class TestMap(TestCase):
         # Print the game map
         print("Map for seed 123456789:")
         print(game.map.getMapString())
+
+        # Test units
+        units = list(game.getTeamsUnits(Constants.TEAM.A).values())
+        assert len(units) == 1
+
+        # Try moving a unit, not a great test since maybe can't move North and
+        # opponent may be beside this unit.
+        test = {}
+        unit = units[0]
+        oldCellPosition = game.map.getCellByPos( unit.pos )
+        newCellPosition = game.map.getCellByPos(
+                unit.pos.translate(Constants.DIRECTIONS.NORTH, 1)
+            )
+        action = MoveAction(
+            Constants.TEAM.A,
+            unit.id,
+            Constants.DIRECTIONS.NORTH,
+            newCellPosition
+        )
+
+        # Move the unit
+        assert len(oldCellPosition.units) == 1
+        assert len(newCellPosition.units) == 0
+        gameOver = game.runTurnWithActions([action])
+        print(game.map.getMapString())
+        assert gameOver == False
+        assert len(oldCellPosition.units) == 0
+        assert len(newCellPosition.units) == 1
+
         return True
 
