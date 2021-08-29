@@ -20,6 +20,7 @@ for i in range(2000):
     obs, rewards, done, info = env.step(action)
     env.render()
     if done:
+      print("Episode done, resetting.")
       obs = env.reset()
 
 env.close()
