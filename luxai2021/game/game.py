@@ -198,7 +198,7 @@ class Game:
                 self.handleResourceDeposit(unit)
 
         if (self.isNight()):
-            self.handleNight(self.state)
+            self.handleNight()
 
         # remove resources that are depleted from map
         newResourcesMap = []
@@ -244,11 +244,11 @@ class Game:
         * Handle nightfall and update state accordingly
         */
         """
-        for city in self.cities.values():
+        for city in list(self.cities.values()):
             # if city does not have enough fuel, destroy it
             # TODO, probably add this event to replay
             if (city.fuel < city.getLightUpkeep()):
-                self.destroyCity(city.id)
+                self.destroyCity(city.team, city.id)
             else:
                 city.fuel -= city.getLightUpkeep()
         
@@ -307,7 +307,7 @@ class Game:
         if accumulatedActionStats is None:
             accumulatedActionStats = self._genInitialAccumulatedActionStats()
         
-        # TODO: Implement
+        # TODO: IMPLEMENT THIS
         return cmd
 
     def workerUnitCapReached(self, team, offset = 0):
@@ -525,7 +525,7 @@ class Game:
 
                 # subtract how much was given.
                 amountToDistribute -= distributeAmount
-
+            
             originalCell.resource.amount -= amountDistributed
 
         
@@ -650,7 +650,10 @@ class Game:
         movingUnits = set()
 
         for action in actions:
-            newcell = action.newcell
+            newcell = self.map.getCellByPos(
+                self.getUnit(action.team, action.unitid).pos.translate(action.direction, 1)
+            )
+            #newcell = action.newcell
             if newcell in cellsToActionsToThere:
                 cellsToActionsToThere[newcell] += [action]
             else:

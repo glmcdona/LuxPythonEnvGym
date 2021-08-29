@@ -15,6 +15,7 @@ setup(
          "stable_baselines3",
          "numpy",
     ],
+    package_data={'luxai2021': ['game/game_constants.json']},
     test_suite='nose2.collector.collector',
     tests_require=['nose2'],
 )
