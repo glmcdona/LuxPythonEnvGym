@@ -11,11 +11,10 @@ class Action:
         self.team = team
 
 class MoveAction(Action):
-    def __init__(self, team, unitid, direction, newcell):
+    def __init__(self, team, unitid, direction):
         action = Constants.ACTIONS.MOVE
         self.unitid = unitid
         self.direction = direction
-        self.newcell = newcell
         super().__init__(action, team)
 
 class SpawnAction(Action):

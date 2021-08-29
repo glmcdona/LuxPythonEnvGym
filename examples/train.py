@@ -1,12 +1,18 @@
+
+
+
 import gym
 import json
 import datetime as dt
 
 from stable_baselines3 import PPO # pip install stable-baselines3
+from luxai2021.env.lux_env import LuxEnvironment
+from luxai2021.game.constants import LuxMatchConfigs_Default
+from luxai2021.game.match_controller import AgentOpponent
 
-from env.lux_env import LuxPerUnitEnvironment
-
-env = LuxPerUnitEnvironment(map_height=30, map_width=30)
+configs = LuxMatchConfigs_Default
+opponent = AgentOpponent()
+env = LuxEnvironment(configs, opponent)
 model = PPO("MlpPolicy", env, verbose=1)
 
 model.learn(total_timesteps=20000)

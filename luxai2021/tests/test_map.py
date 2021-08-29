@@ -82,18 +82,28 @@ class TestMap(TestCase):
         action = MoveAction(
             Constants.TEAM.A,
             unit.id,
-            Constants.DIRECTIONS.NORTH,
-            newCellPosition
+            Constants.DIRECTIONS.NORTH
         )
 
-        # Move the unit
+        # Move the unit and run a single turn
         assert len(oldCellPosition.units) == 1
         assert len(newCellPosition.units) == 0
+        print(unit.cargo)
+        assert unit.cargo[Constants.RESOURCE_TYPES.WOOD] == 0
+
         gameOver = game.runTurnWithActions([action])
+
         print(game.map.getMapString())
         assert gameOver == False
         assert len(oldCellPosition.units) == 0
         assert len(newCellPosition.units) == 1
+        print(unit.cargo)
+        assert unit.cargo[Constants.RESOURCE_TYPES.WOOD] == 60
+
+        # Let the game run it's course
+        while not gameOver:
+            gameOver = game.runTurnWithActions([])
+        print(game.map.getMapString())
 
         return True
 
