@@ -3,6 +3,7 @@
 from luxai2021.game.actions import MoveAction
 from unittest import TestCase
 
+import time
 import random
 import math
 from ..game.game import Game
@@ -107,3 +108,26 @@ class TestMap(TestCase):
 
         return True
 
+
+    def test_gen_game_seed(self):
+        print("Testing game simulation speed")
+        LuxMatchConfigs = {
+            "seed": 123456789,
+        }
+
+        game = Game(LuxMatchConfigs)
+
+        # Play 10 games to measure performance
+        start_time = time.time()
+        for i in range(10): 
+            gameOver = False
+            while not gameOver:
+                gameOver = game.runTurnWithActions([])
+            game.reset()
+        total_time = time.time() - start_time
+
+        print("Simple empty game: %.3f seconds per full game." % (total_time / 10.0))
+        assert (total_time / 10.0) <= 2.0 # Normally takes ~0.312 seconds per game on my device
+        
+
+        return True

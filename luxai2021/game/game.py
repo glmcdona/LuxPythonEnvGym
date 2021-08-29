@@ -6,6 +6,7 @@ import traceback
 from .unit import Unit, Worker, Cart
 from .city import City
 import math
+import random
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
@@ -127,7 +128,9 @@ class Game:
                     else:
                         actionsMap[action.action] = [action]
             except Exception as e:
+                self.log("Error processing action")
                 self.log(repr(e))
+                self.log(traceback.print_exc())
 
         # give units and city tiles their validated actions to use
         if Constants.ACTIONS.BUILD_CITY in actionsMap:
@@ -233,7 +236,7 @@ class Game:
             #    self.replay.writeOut(self.getResults(match))
             return True
 
-        self.log('Beginning turn %s' % self.state["turn"])
+        #self.log('Beginning turn %s' % self.state["turn"])
         return False
 
 
@@ -293,6 +296,48 @@ class Game:
                 return True
 
         return False
+
+    def getWinningTeam(self):
+        """
+        Implements /src/logic.ts -> getResults()
+        """
+        
+        # count city tiles
+        cityTileCount = [0, 0];
+        for city in self.cities.values():
+            cityTileCount[city.team] += len(city.citycells)
+        
+        if (cityTileCount[Constants.TEAM.A] > cityTileCount[Constants.TEAM.B]):
+            return Constants.TEAM.A
+        elif (cityTileCount[Constants.TEAM.A] < cityTileCount[Constants.TEAM.B]):
+            return Constants.TEAM.B
+        
+        # if tied, count by units
+        unitCount = [
+            len(self.getTeamsUnits(Constants.TEAM.A)),
+            len(self.getTeamsUnits(Constants.TEAM.B)),
+        ]
+        if unitCount[Constants.TEAM.A] > unitCount[Constants.TEAM.B]:
+            return Constants.TEAM.A
+        elif unitCount[Constants.TEAM.B] > unitCount[Constants.TEAM.A]:
+            return Constants.TEAM.B
+        
+        # if tied still, count by fuel generation
+        if (
+            self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] >
+            self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
+        ):
+            return Constants.TEAM.A
+        elif (
+            self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] <
+            self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
+        ):
+            return Constants.TEAM.B
+
+        # if still undecided, for now, go by random choice
+        if ( random.random() > 0.5):
+            return Constants.TEAM.A
+        return Constants.TEAM.B
 
 
     def log(self, text):

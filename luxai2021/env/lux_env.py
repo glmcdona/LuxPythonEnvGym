@@ -76,7 +76,11 @@ class LuxEnvironment(gym.Env):
     
     def _next_observation(self):
         # Get the next observation
-        (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
+        try:
+            (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
+        except StopIteration as err:
+            # The game episode is done.
+            return None
 
         if isNewTurn:
             # It's a new turn this event. This flag is set True for only the first observation from each turn.
@@ -96,7 +100,8 @@ class LuxEnvironment(gym.Env):
 
     def step(self, action):
         # Take this action, then get the state at the next action
-        self._take_action(action) # Decision for 1 unit
+        #self._take_action(action) # Decision for 1 unit
+        self._take_action(None) # Decision for 1 unit
         self.current_step += 1
 
         # Calculate reward for this step
@@ -105,7 +110,16 @@ class LuxEnvironment(gym.Env):
         # TODO: Logic for when the game ends
         done = False
         obs = self._next_observation()
-
+        if obs is None:
+            done = True
+            # Give a reward of 1 or -1 based on if they won or not.
+            if self.game.getWinningTeam() == Constants.TEAM.A:
+                print("Won match")
+                reward = 1.0
+            else:
+                print("Lost match")
+                reward = -1.0
+        
         return obs, reward, done, {}
 
     def reset(self):
@@ -113,6 +127,7 @@ class LuxEnvironment(gym.Env):
 
         # Reset game + map
         self.matchController.reset()
+        self.matchGenerator = self.matchController.run_to_next_observation()
 
         return self._next_observation()
 
