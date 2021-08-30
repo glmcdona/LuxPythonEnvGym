@@ -75,7 +75,7 @@ class MatchController():
                         if unit.canAct():
                             # RL training agent that is controlling the simulation
                             # The enviornment then handles this unit, and calls take_action() to buffer a requested action
-                            yield (unit.id, None, unit.team, newTurn)
+                            yield (unit, None, unit.team, newTurn)
                             newTurn = False
                     
                     cities = self.game.cities.values()
@@ -86,7 +86,7 @@ class MatchController():
                                 if citytile.canAct():
                                     # RL training agent that is controlling the simulation
                                     # The enviornment then handles this city, and calls take_action() to buffer a requested action
-                                    yield (None, citytile.cityid, citytile.team, newTurn)
+                                    yield (None, citytile, citytile.team, newTurn)
                                     newTurn = False
                     
                     timeTaken = time.time() - startTime

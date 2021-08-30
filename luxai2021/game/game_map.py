@@ -379,7 +379,10 @@ class GameMap:
         return cell
 
     def getCellByPos(self, pos) -> Cell:
+        if pos.y >= len(self.map) or pos.x >= len(self.map[0]) or pos.y < 0 or pos.x < 0:
+            return None
         return self.map[pos.y][pos.x]
+        
 
     def getCell(self, x, y) -> Cell:
         return self.map[y][x]
