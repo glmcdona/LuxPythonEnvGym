@@ -28,20 +28,29 @@ class LuxEnvironment(gym.Env):
         self.current_step = 0
         self.matchGenerator = self.matchController.runToNextObservation()
 
+        self.lastObservationObject = None
     
 
     def step(self, action_code):
         # Take this action, then get the state at the next action
-        #self._take_action(action) # Decision for 1 unit
-        self.learningAgent.takeAction(action_code) # Decision for 1 unit
+        
+        # Decision for 1 unit or city
+        self.learningAgent.takeAction(action_code,
+            self.game,
+            unit=self.lastObservationObject[0],
+            citytile=self.lastObservationObject[1],
+            team=self.lastObservationObject[2]
+        )
+
         self.current_step += 1
 
         # Get the next observation
         isNewTurn = True
         isGameOver = False
         try:
-            (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
-            obs = self.learningAgent.getObservation(self.game, unitid, citytileid, team, isNewTurn)
+            (unit, citytile, team, isNewTurn) = next(self.matchGenerator)
+            obs = self.learningAgent.getObservation(self.game, unit, citytile, team, isNewTurn)
+            self.lastObservationObject = (unit, citytile, team, isNewTurn)
         except StopIteration as err:
             # The game episode is done.
             isGameOver = True
@@ -54,13 +63,15 @@ class LuxEnvironment(gym.Env):
 
     def reset(self):
         self.current_step = 0
+        self.lastObservationObject = None
 
         # Reset game + map
         self.matchController.reset()
         self.matchGenerator = self.matchController.runToNextObservation()
-        (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
+        (unit, citytile, team, isNewTurn) = next(self.matchGenerator)
 
-        obs = self.learningAgent.getObservation(self.game, unitid, citytileid, team, isNewTurn)
+        obs = self.learningAgent.getObservation(self.game, unit, citytile, team, isNewTurn)
+        self.lastObservationObject = (unit, citytile, team, isNewTurn)
 
         return obs
 

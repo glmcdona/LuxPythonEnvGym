@@ -11,7 +11,10 @@ class Action:
         self.team = team
 
 class MoveAction(Action):
-    def __init__(self, team, unitid, direction):
+    def __init__(self, team, unitid, direction, **kwarg):
+        if unitid == None:
+            raise Exception("Move action needs a unit.")
+
         action = Constants.ACTIONS.MOVE
         self.unitid = unitid
         self.direction = direction

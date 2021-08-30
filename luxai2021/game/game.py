@@ -698,13 +698,14 @@ class Game:
             newcell = self.map.getCellByPos(
                 self.getUnit(action.team, action.unitid).pos.translate(action.direction, 1)
             )
-            #newcell = action.newcell
-            if newcell in cellsToActionsToThere:
-                cellsToActionsToThere[newcell] += [action]
-            else:
-                cellsToActionsToThere[newcell] = [action]
-            
-            movingUnits.add(action.unitid)
+            if newcell != None:
+                #newcell = action.newcell
+                if newcell in cellsToActionsToThere:
+                    cellsToActionsToThere[newcell] += [action]
+                else:
+                    cellsToActionsToThere[newcell] = [action]
+                
+                movingUnits.add(action.unitid)
 
         def revertAction(action):
             # reverts a given action such that cellsToActionsToThere has no collisions due to action and all related actions
@@ -717,9 +718,9 @@ class Game:
             # get the colliding actions caused by a revert of the given action and then delete them from the mapped origcell provided it is not a city tile
             collidingActions = cellsToActionsToThere[origcell] if origcell in cellsToActionsToThere else None
             if (not origcell.isCityTile()):
-                cellsToActionsToThere.pop(origcell)
-
                 if (collidingActions is not None):
+                    cellsToActionsToThere.pop(origcell)
+
                     # for each colliding action, revert it.
                     for collidingAction in collidingActions:
                         revertAction(collidingAction)
@@ -741,16 +742,20 @@ class Game:
                         if (len(cell.units) == 1):
                             unitThereIsStill = True
                             for unit in cell.units.values():
-                                if (movingUnits.has(unit.id)):
+                                if (unit.id in movingUnits):
                                     unitThereIsStill = False
                             if (unitThereIsStill):
-                                actionsToRevert.push(action)
+                                actionsToRevert.append(action)
             
             # if there are collisions, revert those actions and remove the mapping
             for action in actionsToRevert:
                 revertAction(action)
             for action in actionsToRevert:
-                cellsToActionsToThere.pop(action.newcell)
+                newcell = self.map.getCellByPos(
+                    self.getUnit(action.team, action.unitid).pos.translate(action.direction, 1)
+                )
+                if newcell in cellsToActionsToThere:
+                    cellsToActionsToThere.pop(newcell)
         
         prunedActions = []
         for currActions in cellsToActionsToThere.values():

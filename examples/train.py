@@ -35,8 +35,8 @@ class AgentPolicy(Agent):
             partial(MoveAction,direction=Constants.DIRECTIONS.SOUTH),
             partial(MoveAction,direction=Constants.DIRECTIONS.EAST),
             #TransferAction,
-            SpawnWorkerAction,
-            SpawnCityAction,
+            #SpawnWorkerAction,
+            #SpawnCityAction,
             #ResearchAction,
             #PillageAction,
         ]
@@ -82,7 +82,7 @@ class AgentPolicy(Agent):
         else:
             return Constants.AGENT_TYPE.AGENT
     
-    def getObservation(self, game, unitid, citytileid, team, isNewTurn):
+    def getObservation(self, game, unit, citytile, team, isNewTurn):
         """
         Implements getting a observation from the current game for this unit or city
         """
@@ -93,21 +93,32 @@ class AgentPolicy(Agent):
         
         return np.array(np.zeros( self.observation_space.shape ) )
 
-    def actionCodeToAction(self, actionCode):
+    def actionCodeToAction(self, actionCode, game, unit=None, citytile=None, team=None):
         """
         Takes an action in the environment according to actionCode:
             actionCode: Index of action to take into the action array.
         Returns: An action.
         """
-        # TODO: Map actionCode to a real action
-        return None
+        # Map actionCode index into to a constructed Action object
+        try:
+            return self.actionSpaceMap[actionCode](
+                game=game,
+                unitid=unit.id if unit else None,
+                unit=unit,
+                cityid = citytile.cityid if citytile else None,
+                citytile=citytile,
+                team=team
+            )
+        except Exception as e:
+            # Not a valid action
+            return None
 
-    def takeAction(self, actionCode):
+    def takeAction(self, actionCode, game, unit=None, citytile=None, team=None):
         """
         Takes an action in the environment according to actionCode:
             actionCode: Index of action to take into the action array.
         """
-        action = self.actionCodeToAction( actionCode )
+        action = self.actionCodeToAction( actionCode, game, unit, citytile, team )
         self.matchController.takeAction( action )
 
     def getReward(self, game, isGameFinished, isNewTurn):
@@ -139,10 +150,10 @@ class AgentPolicy(Agent):
         units = game.state["teamStates"][team]["units"].values()
         for unit in units:
             if unit.canAct():
-                obs = self.getObservation(game, unit.id, None, unit.team, newTurn )
-                action, _states = self.model.predict(obs)
-                if action != None:
-                    actions.append(self.actionCodeToAction(action))
+                obs = self.getObservation(game, unit, None, unit.team, newTurn )
+                actionCode, _states = self.model.predict(obs)
+                if actionCode != None:
+                    actions.append(self.actionCodeToAction(actionCode, game=game, unit=unit, citytile=None, team=unit.team))
                 newTurn = False
         
         # Inference the model per-city
@@ -152,10 +163,10 @@ class AgentPolicy(Agent):
                 for cell in city.citycells:
                     citytile = cell.citytile
                     if citytile.canAct():
-                        obs = self.getObservation(game, None, citytile.cityid, unit.team, newTurn )
-                        action, _states = self.model.predict(obs)
-                        if action != None:
-                            actions.append(self.actionCodeToAction(action))
+                        obs = self.getObservation(game, None, citytile, city.team, newTurn )
+                        actionCode, _states = self.model.predict(obs)
+                        if actionCode != None:
+                            actions.append(self.actionCodeToAction(actionCode, game=game, unit=None, citytile=citytile, team=city.team))
                         newTurn = False
 
         timeTaken = time.time() - startTime
@@ -166,41 +177,43 @@ class AgentPolicy(Agent):
 
 
 if __name__ == "__main__":
-  configs = LuxMatchConfigs_Default
-  
-  # Create a default opponent agent
-  opponent = Agent()
+    configs = LuxMatchConfigs_Default
 
-  # Create a RL agent in training mode
-  player = AgentPolicy(mode="train")
+    # Create a default opponent agent
+    opponent = Agent()
 
-  # Train the model
-  env = LuxEnvironment(configs, player, opponent)
-  model = PPO("MlpPolicy", env, verbose=1)
-  print("Training model...")
-  model.learn(total_timesteps=2000)
-  print("Done training model.")
+    # Create a RL agent in training mode
+    player = AgentPolicy(mode="train")
 
-  # Inference the model
-  print("Inferencing model policy with rendering...")
-  obs = env.reset()
-  for i in range(400):
-      action, _states = model.predict(obs)
-      obs, rewards, done, info = env.step(action)
-      env.render()
-      if done:
-        print("Episode done, resetting.")
-        obs = env.reset()
-  env.close()
-  print("Done")
+    # Train the model
+    env = LuxEnvironment(configs, player, opponent)
+    model = PPO("MlpPolicy", env, verbose=1)
+    print("Training model...")
+    model.learn(total_timesteps=20000)
+    print("Done training model.")
 
-  # Learn with self-play against the learned model as an opponent now
-  print("Training model with self-play against last version of model...")
-  player = AgentPolicy(mode="train")
-  opponent = AgentPolicy(mode="inference", model=model)
-  env = LuxEnvironment(configs, player, opponent)
-  model = PPO("MlpPolicy", env, verbose=1)
+    # Inference the model
+    print("Inferencing model policy with rendering...")
+    obs = env.reset()
+    for i in range(400):
+        actionCode, _states = model.predict(obs)
+        obs, rewards, done, info = env.step(actionCode)
+        if i % 50 == 0:
+            print("Turn %i" % i)
+            env.render()
+        if done:
+            print("Episode done, resetting.")
+            obs = env.reset()
+        env.close()
+    print("Done")
 
-  model.learn(total_timesteps=2000)
-  env.close()
-  print("Done")
+    # Learn with self-play against the learned model as an opponent now
+    print("Training model with self-play against last version of model...")
+    player = AgentPolicy(mode="train")
+    opponent = AgentPolicy(mode="inference", model=model)
+    env = LuxEnvironment(configs, player, opponent)
+    model = PPO("MlpPolicy", env, verbose=1)
+
+    model.learn(total_timesteps=20000)
+    env.close()
+    print("Done")
