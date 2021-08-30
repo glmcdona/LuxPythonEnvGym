@@ -1,135 +1,68 @@
-''' Implements the base class for a training Agent '''
+''' Implements the base class for a Lux enviornment '''
 from ..game.game import Game
 from ..game.match_controller import MatchController
-from ..game.actions import *
 from ..game.constants import Constants
 
 import gym
 from gym import spaces
 import numpy as np
-from functools import partial # pip install functools
+
+
 
 class LuxEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
-
-    def takeAction(self, action):
-        '''TODO: Take action'''
-        pass
     
-    def __init__(self, configs, opponentAgent):
+    def __init__(self, configs, learningAgent, opponentAgent):
         super(LuxEnvironment, self).__init__()
 
         # Create the game
         self.game = Game(configs)
-        self.matchController = MatchController( self.game, agents =[None, opponentAgent] )
-        self.matchGenerator = self.matchController.run_to_next_observation()
+        self.matchController = MatchController( self.game, agents = [learningAgent, opponentAgent] )
 
-        # Define action and observation space
-        # They must be gym.spaces objects
-        # Example when using discrete actions:
-        self.action_space_map = [
-            partial(MoveAction,direction=Constants.DIRECTIONS.CENTER), # This is the do-nothing action
-            partial(MoveAction,direction=Constants.DIRECTIONS.NORTH),
-            partial(MoveAction,direction=Constants.DIRECTIONS.WEST),
-            partial(MoveAction,direction=Constants.DIRECTIONS.SOUTH),
-            partial(MoveAction,direction=Constants.DIRECTIONS.EAST),
-            #TransferAction,
-            SpawnWorkerAction,
-            SpawnCityAction,
-            #ResearchAction,
-            #PillageAction,
-        ]
-        self.action_space = spaces.Discrete(len(self.action_space_map))
+        self.action_space = learningAgent.action_space
+        self.observation_space = learningAgent.observation_space
 
-        # Example super-basic discrete observation space
-        '''self.observation_space_map = [
-            # State observations
-            partial(isNight, self),
-            
-            # Unit observations, empty if not a unit
-            partial(cargoAmount, self),
+        self.learningAgent = learningAgent
 
-            partial(nearestWoodDistance, self),
-            partial(nearestWoodDirection, self),
+        self.current_step = 0
+        self.matchGenerator = self.matchController.runToNextObservation()
 
-            partial(nearestCityDistance, self),
-            partial(nearestCityDirection, self),
-            partial(nearestCityFuel, self),
-            partial(nearestCitySize, self),
-            partial(nearestCityUpkeep, self),
-
-            # City observations, empty if not a city
-            partial(cityFuel, self),
-            partial(citySize, self),
-            partial(cityUpkeep, self),
-        ]
-
-        self.observation_space = spaces.Discrete(len(self.observation_space_map)))'''
-        self.observation_space = spaces.Discrete(10)
-
-        # Example for using image as input instead:
-        #self.observation_space = spaces.Box(low=0, high=255, shape=
-        #                (game.map.width, game.map.height, 10), dtype=np.uint8)
-
-        self.reset()
     
-    def _next_observation(self):
-        # Get the next observation
-        try:
-            (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
-        except StopIteration as err:
-            # The game episode is done.
-            return None
 
-        if isNewTurn:
-            # It's a new turn this event. This flag is set True for only the first observation from each turn.
-            # Update any per-turn fixed observation space that doesn't change per unit/city controlled.
-            pass
-        
-        # TODO: Call the observation space functions
-        return np.array(np.zeros( self.observation_space.shape ) )
-
-    def _take_action(self, action):
-        self.matchController.take_action(action)
-        pass
-
-    def _reward(self):
-        # TODO: Returns the reward function for this agent.
-        return 0.0
-
-    def step(self, action):
+    def step(self, action_code):
         # Take this action, then get the state at the next action
         #self._take_action(action) # Decision for 1 unit
-        self._take_action(None) # Decision for 1 unit
+        self.learningAgent.takeAction(action_code) # Decision for 1 unit
         self.current_step += 1
 
-        # Calculate reward for this step
-        reward = self._reward()
+        # Get the next observation
+        isNewTurn = True
+        isGameOver = False
+        try:
+            (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
+            obs = self.learningAgent.getObservation(self.game, unitid, citytileid, team, isNewTurn)
+        except StopIteration as err:
+            # The game episode is done.
+            isGameOver = True
+            obs = None
 
-        # TODO: Logic for when the game ends
-        done = False
-        obs = self._next_observation()
-        if obs is None:
-            done = True
-            # Give a reward of 1 or -1 based on if they won or not.
-            if self.game.getWinningTeam() == Constants.TEAM.A:
-                print("Won match")
-                reward = 1.0
-            else:
-                print("Lost match")
-                reward = -1.0
+        # Calculate reward for this step
+        reward = self.learningAgent.getReward(self.game, isGameOver, isNewTurn)
         
-        return obs, reward, done, {}
+        return obs, reward, isGameOver, {}
 
     def reset(self):
         self.current_step = 0
 
         # Reset game + map
         self.matchController.reset()
-        self.matchGenerator = self.matchController.run_to_next_observation()
+        self.matchGenerator = self.matchController.runToNextObservation()
+        (unitid, citytileid, team, isNewTurn) = next(self.matchGenerator)
 
-        return self._next_observation()
+        obs = self.learningAgent.getObservation(self.game, unitid, citytileid, team, isNewTurn)
+
+        return obs
 
     def render(self):
         print(self.current_step)
