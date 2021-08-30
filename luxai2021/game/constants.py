@@ -1,6 +1,9 @@
 from .game_constants import GAME_CONSTANTS
 
 class Constants:
+    class AGENT_TYPE:
+        AGENT = "agent"
+        LEARNING = "learning"
     class INPUT_CONSTANTS:
         RESEARCH_POINTS = "rp"
         RESOURCES = "r"

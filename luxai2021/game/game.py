@@ -256,7 +256,7 @@ class Game:
                 city.fuel -= city.getLightUpkeep()
         
         for team in [Constants.TEAM.A, Constants.TEAM.B]:
-            for unit in self.state["teamStates"][team]["units"].values():
+            for unit in list(self.state["teamStates"][team]["units"].values()):
                 # TODO: add condition for different light upkeep for units stacked on a city.
                 if (not self.map.getCellByPos(unit.pos).isCityTile()):
                     if (not unit.spendFuelToSurvive()):
