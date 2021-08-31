@@ -21,26 +21,26 @@ class MoveAction(Action):
         super().__init__(action, team)
 
 class SpawnAction(Action):
-    def __init__(self, action, team, unitid, x, y):
+    def __init__(self, action, team, unitid, x, y, **kwarg):
         self.unitid = unitid
         self.x = x
         self.y = y
         super().__init__(action, team)
 
 class SpawnCartAction(SpawnAction):
-    def __init__(self, team, unitid, x, y):
+    def __init__(self, team, unitid, x, y, **kwarg):
         action = Constants.ACTIONS.BUILD_CART
         self.type = UNIT_TYPES.CART
         super().__init__(action, team, unitid, x, y)
 
 class SpawnWorkerAction(SpawnAction):
-    def __init__(self, action, team, unitid, x, y):
+    def __init__(self, action, team, unitid, x, y, **kwarg):
         action = Constants.ACTIONS.BUILD_WORKER
         self.type = UNIT_TYPES.WORKER
         super().__init__(action, team, unitid, x, y)
 
 class SpawnCityAction(Action):
-    def __init__(self, team, unitid):
+    def __init__(self, team, unitid, **kwarg):
         action = Constants.ACTIONS.BUILD_CITY
         self.unitid = unitid
         super().__init__(action, team)

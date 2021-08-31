@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Personal agent
+personal/
+
 # C extensions
 *.so
 
