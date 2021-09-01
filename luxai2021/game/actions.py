@@ -96,6 +96,11 @@ class SpawnWorkerAction(SpawnAction):
         """
         if self.x == None or self.y == None or self.team == None:
             return False
+        
+        if self.y < 0 or self.y >= game.map.height:
+            return False
+        if self.x < 0 or self.x >= game.map.height:
+            return False
 
         citytile = game.map.getCell(self.x, self.y).citytile
         if citytile == None:
