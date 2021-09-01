@@ -352,8 +352,8 @@ if __name__ == "__main__":
     
     # Train the model
     num_cpu = 4
-    env = SubprocVecEnv([make_env(LuxEnvironment(configs, player, opponent), i) for i in range(num_cpu)])
-    #env = LuxEnvironment(configs, player, opponent)
+    #env = SubprocVecEnv([make_env(LuxEnvironment(configs, player, opponent), i) for i in range(num_cpu)])
+    env = LuxEnvironment(configs, player, opponent)
     model = PPO("MlpPolicy",
         env,
         verbose=1,
