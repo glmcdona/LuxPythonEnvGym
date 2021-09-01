@@ -26,7 +26,7 @@ class LuxEnvironment(gym.Env):
         self.learningAgent = learningAgent
 
         self.current_step = 0
-        self.matchGenerator = self.matchController.runToNextObservation()
+        self.matchGenerator = None
 
         self.lastObservationObject = None
     
