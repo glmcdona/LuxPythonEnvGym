@@ -425,7 +425,7 @@ class GameMap:
         # ▩▩ = Wood
         # ▣▣ = Coal
         # ▷▷ == Uranium
-        str = ''
+        map_str = ''
         for y in range(self.height):
             row = self.getRow(y)
             for cell in row:
@@ -445,7 +445,7 @@ class GameMap:
                         else:
                             unitstr += "?"
                         
-                        str += unitstr
+                        map_str += unitstr
                     else:
                         unitstr = str(len(cell.units))
                         
@@ -456,25 +456,25 @@ class GameMap:
                         else:
                             unitstr += "?"
                         
-                        str += unitstr
+                        map_str += unitstr
                 elif (cell.hasResource()):
                     if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
-                        str += "w,"
+                        map_str += "w,"
                     if cell.resource.type == Constants.RESOURCE_TYPES.COAL:
-                        str += "c,"
+                        map_str += "c,"
                     if cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
-                        str += "u,"
+                        map_str += "u,"
                 elif (cell.isCityTile()):
-                        str += "C";
+                        map_str += "C";
                         if cell.citytile.team == Constants.TEAM.A:
-                            str += "a"
+                            map_str += "a"
                         elif cell.citytile.team == Constants.TEAM.B:
-                            str += "b"
+                            map_str += "b"
                         else:
-                            str += "?"
+                            map_str += "?"
                 else:
-                    str += ".."
-            str += "\n"
-        return str
+                    map_str += ".."
+            map_str += "\n"
+        return map_str
 
 

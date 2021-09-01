@@ -49,7 +49,15 @@ class MatchController():
     def takeAction(self, action):
         """ Adds the specified action to the action buffer """
         if action is not None:
-            self.actionBuffer.append(action)
+            # Validate the action
+            if action.isValid(self.game):
+                # Add the action
+                self.actionBuffer.append(action)
+
+    def takeActions(self, actions):
+        """ Adds the specified action to the action buffer """
+        for action in actions:
+            self.takeAction(action)
     
     def runToNextObservation(self):
         """ 
@@ -64,7 +72,7 @@ class MatchController():
                 if agent.getAgentType() == Constants.AGENT_TYPE.AGENT:
                     # Call the agent for the set of actions
                     actions = agent.processTurn(self.game, agent.team)
-                    self.actionBuffer += actions
+                    self.takeActions(actions)
                 elif agent.getAgentType() == Constants.AGENT_TYPE.LEARNING:
                     # Yield the game to make a decision, since the learning environment is the function caller
                     newTurn = True

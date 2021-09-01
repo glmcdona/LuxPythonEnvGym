@@ -6,6 +6,12 @@ __pycache__/
 # Personal agent
 personal/
 
+# Log
+log.txt
+
+# Tenserboard logs
+lux_tensorboard/
+
 # C extensions
 *.so
 

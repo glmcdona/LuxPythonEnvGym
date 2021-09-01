@@ -18,6 +18,7 @@ class Game:
         self.configs.update(configs) # Override default config from specified config
         self.agents = []
         self.reset()
+        self.logFile = None
 
     def reset(self):
         ''' Resets the game for another game. '''
@@ -303,7 +304,7 @@ class Game:
         """
         
         # count city tiles
-        cityTileCount = [0, 0];
+        cityTileCount = [0, 0]
         for city in self.cities.values():
             cityTileCount[city.team] += len(city.citycells)
         
@@ -342,7 +343,10 @@ class Game:
 
     def log(self, text):
         ''' Logs the specified text'''
-        print(text) # TODO: Log to file as well?
+        if self.logFile == None:
+            self.logFile = open("log.txt","w")
+        self.logFile.write(text + "\n")
+        #print(text) # TODO: Log to file as well?
 
     def validateCommand(self, cmd, accumulatedActionStats=None):
         """
@@ -351,6 +355,16 @@ class Game:
         """
         if accumulatedActionStats is None:
             accumulatedActionStats = self._genInitialAccumulatedActionStats()
+
+        def check(condition, errormsg, trace = True):
+            if (condition):
+                if trace:
+                    raise Exception(errormsg + "; turn ${this.state.turn}; cmd: ${cmd.command}")
+                else:
+                    raise Exception(errormsg)
+        
+        
+
         
         # TODO: IMPLEMENT THIS
         return cmd
@@ -421,10 +435,10 @@ class Game:
         Spawns new city tile
         Implements src/Game/index.ts -> Game.spawnCityTile()
         """
-        cell = self.map.getCell(x, y);
+        cell = self.map.getCell(x, y)
 
         # now update the cities field accordingly
-        adjCells = self.map.getAdjacentCells(cell);
+        adjCells = self.map.getAdjacentCells(cell)
 
         cityIdsFound = set()
 
@@ -432,13 +446,13 @@ class Game:
         for cell in adjCells:
             if cell.isCityTile() and cell.citytile.team == team:
                 adjSameTeamCityTiles.append(cell)
-                cityIdsFound.add(cityid)
+                cityIdsFound.add(cell.citytile.cityid)
 
         # if no adjacent city cells of same team, generate new city
         if len(adjSameTeamCityTiles) == 0:
             city = City(team, self.configs, self.globalCityIDCount + 1)
 
-            if cityid:
+            if cityid != None:
                 city.id = cityid
             else:
                 self.globalCityIDCount += 1
@@ -456,20 +470,20 @@ class Game:
 
             # update adjacency counts for bonuses
             cell.citytile.adjacentCityTiles = len(adjSameTeamCityTiles)
-            for cell in adjSameTeamCityTiles:
-                cell.citytile.adjacentCityTiles += 1
+            for adjCell in adjSameTeamCityTiles:
+                adjCell.citytile.adjacentCityTiles += 1
             city.addCityTile(cell)
 
             # update all merged cities' cells with merged cityid, move to merged city and delete old city
-            for cityid in cityIdsFound:
+            for id in cityIdsFound:
                 if id != cityid:
                     oldcity = self.cities[id]
                     for cell in oldcity.citycells:
                         cell.citytile.cityid = cityid
                         city.addCityTile(cell)
                 
-                city.fuel += oldcity.fuel
-                self.cities.pop(oldcity.id)
+                    city.fuel += oldcity.fuel
+                    self.cities.pop(oldcity.id)
             
             return cell.citytile
 
@@ -519,7 +533,7 @@ class Game:
         * @param cell - a cell with a resource
         """
         if (originalCell.hasResource()):
-            type = originalCell.resource.type;
+            type = originalCell.resource.type
             cells = [originalCell] + self.map.getAdjacentCells(originalCell)
             workersToReceiveResources = []
             for cell in cells:
@@ -534,8 +548,13 @@ class Game:
             def isWorker(pet):
                 return isinstance(pet, Worker)
             
-            rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type.upper()]
-            conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type.upper()]
+            type_map = {
+                Constants.RESOURCE_TYPES.WOOD : "WOOD",
+                Constants.RESOURCE_TYPES.COAL : "COAL",
+                Constants.RESOURCE_TYPES.URANIUM : "URANIUM",
+            }
+            rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type_map[type]]
+            conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_map[type]]
 
             # find out how many resources to distribute and release
             amountToDistribute = rate * len(workersToReceiveResources)
@@ -727,25 +746,26 @@ class Game:
 
         actionedCells = list(cellsToActionsToThere.keys())
         for cell in actionedCells:
-            currActions = cellsToActionsToThere[cell]
-            actionsToRevert = []
-            if (currActions != None):
-                if (len(currActions) > 1):
-                    # only revert actions that are going to the same tile that is not a city
-                    # if going to the same city tile, we know those actions are from same team units, and is allowed
-                    if (not cell.isCityTile()):
-                        actionsToRevert += currActions
-                elif (len(currActions) == 1):
-                    # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
-                    action = currActions[0]
-                    if (not cell.isCityTile()):
-                        if (len(cell.units) == 1):
-                            unitThereIsStill = True
-                            for unit in cell.units.values():
-                                if (unit.id in movingUnits):
-                                    unitThereIsStill = False
-                            if (unitThereIsStill):
-                                actionsToRevert.append(action)
+            if cell in cellsToActionsToThere:
+                currActions = cellsToActionsToThere[cell]
+                actionsToRevert = []
+                if (currActions != None):
+                    if (len(currActions) > 1):
+                        # only revert actions that are going to the same tile that is not a city
+                        # if going to the same city tile, we know those actions are from same team units, and is allowed
+                        if (not cell.isCityTile()):
+                            actionsToRevert += currActions
+                    elif (len(currActions) == 1):
+                        # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
+                        action = currActions[0]
+                        if (not cell.isCityTile()):
+                            if (len(cell.units) == 1):
+                                unitThereIsStill = True
+                                for unit in cell.units.values():
+                                    if (unit.id in movingUnits):
+                                        unitThereIsStill = False
+                                if (unitThereIsStill):
+                                    actionsToRevert.append(action)
             
             # if there are collisions, revert those actions and remove the mapping
             for action in actionsToRevert:

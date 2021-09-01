@@ -14,6 +14,7 @@ setup(
          "pytest",
          "stable_baselines3",
          "numpy",
+         "tensorboard"
     ],
     package_data={'luxai2021': ['game/game_constants.json']},
     test_suite='nose2.collector.collector',
