@@ -15,6 +15,9 @@ from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.env.agent import Agent
 from luxai2021.game.constants import LuxMatchConfigs_Default
 from luxai2021.game.actions import *
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.utils import set_random_seed
 
 from functools import partial # pip install functools
 
@@ -22,6 +25,22 @@ from functools import partial # pip install functools
 def closest_node(node, nodes):
     dist_2 = np.sum((nodes - node)**2, axis=1)
     return np.argmin(dist_2)
+
+# https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
+def make_env(env, rank, seed=0):
+    """
+    Utility function for multiprocessed env.
+
+    :param env_id: (str) the environment ID
+    :param num_env: (int) the number of environments you wish to have in subprocesses
+    :param seed: (int) the inital seed for RNG
+    :param rank: (int) index of the subprocess
+    """
+    def _init():
+        env.seed(seed + rank)
+        return env
+    set_random_seed(seed)
+    return _init
 
 class AgentPolicy(Agent):
     def __init__(self, mode="train", model=None) -> None:
@@ -332,19 +351,21 @@ if __name__ == "__main__":
     player = AgentPolicy(mode="train")
     
     # Train the model
-    env = LuxEnvironment(configs, player, opponent)
+    num_cpu = 4
+    env = SubprocVecEnv([make_env(LuxEnvironment(configs, player, opponent), i) for i in range(num_cpu)])
+    #env = LuxEnvironment(configs, player, opponent)
     model = PPO("MlpPolicy",
         env,
         verbose=1,
         tensorboard_log="./lux_tensorboard/",
-        learning_rate = 0.0003,
-        gamma=0.999,
+        learning_rate = 0.0001,
+        gamma=0.995,
         gae_lambda = 0.95
     )
     print("Training model...")
-    model.learn(total_timesteps=1000000)
+    model.learn(total_timesteps=10000000)
     print("Done training model.")
-
+    
     # Inference the model
     print("Inferencing model policy with rendering...")
     obs = env.reset()
@@ -377,3 +398,4 @@ if __name__ == "__main__":
     model.learn(total_timesteps=2000)
     env.close()
     print("Done")
+    
