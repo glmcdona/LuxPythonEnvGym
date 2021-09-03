@@ -16,12 +16,15 @@ class Position:
         """
         Returns Manhattan (L1/grid) distance to pos
         """
+        return abs(pos.x - self.x) + abs(pos.y - self.y)
         return self - pos
 
     def isAdjacent(self, pos):
         return (self - pos) <= 1
 
     def __eq__(self, pos) -> bool:
+        if pos == None:
+            return False
         return self.x == pos.x and self.y == pos.y
 
     def equals(self, pos):

@@ -5,6 +5,8 @@ from gym import spaces
 import numpy as np
 from collections import OrderedDict
 
+import random
+
 import time
 import json
 import datetime as dt
@@ -72,10 +74,19 @@ class AgentPolicy(Agent):
         ]
         self.action_space = spaces.Discrete(len(self.actionSpaceMap))
 
-        # Observation space: (Basic minimum for a wood miner agent)
-        # Unit:
+        # Observation space: (Basic minimum for a miner agent)
+        # Object:
         #   5x direction_nearest_wood
+        #   1x distance_nearest_wood
+        #   5x direction_nearest_coal
+        #   1x distance_nearest_coal
+        #   5x direction_nearest_uranium
+        #   1x distance_nearest_uranium
         #   5x direction_nearest_city
+        #   1x distance_nearest_city
+        #   5x direction_nearest_worker
+        #   1x distance_nearest_worker
+        # Unit:
         #   1x cargo size
         # State:
         #   1x is night
@@ -83,7 +94,7 @@ class AgentPolicy(Agent):
         #   2x citytile counts [cur player, opponent]
         #   2x worker counts [cur player, opponent]
         #   2x cart counts [cur player, opponent]
-        self.observation_shape = (5+5+1+1+1+2+2+2, )
+        self.observation_shape = (6+6+6+6+6+1+1+1+2+2+2, )
         self.observation_space = spaces.Box(low=0, high=1, shape=
                         self.observation_shape, dtype=np.float16)
 
@@ -124,35 +135,21 @@ class AgentPolicy(Agent):
             
             # Add your own and opponent units
             for t in [team, (team+1)%2]:
-                for unit in game.state["teamStates"][team]["units"].values():
-                    key = str(unit.type)
+                for u in game.state["teamStates"][team]["units"].values():
+                    key = str(u.type)
                     if t != team:
-                        key = str(unit.type) + "_opponent"
+                        key = str(u.type) + "_opponent"
                     
                     if key not in self.objectNodes:
-                        self.objectNodes[key] = np.array([[unit.pos.x, unit.pos.y]])
+                        self.objectNodes[key] = np.array([[u.pos.x, u.pos.y]])
                     else:
                         self.objectNodes[key] = np.concatenate(
                             (
                                 self.objectNodes[key],
-                                [[unit.pos.x, unit.pos.y]]
+                                [[u.pos.x, u.pos.y]]
                             )
                             , axis=0
                         )
-            
-            # Add your opponent units
-            for unit in game.state["teamStates"][(team+1)%2]["units"].values():
-                key = str(unit.type) + "_opponent"
-                if key not in self.objectNodes:
-                    self.objectNodes[key] = np.array([[unit.pos.x, unit.pos.y]])
-                else:
-                    self.objectNodes[key] = np.concatenate(
-                        (
-                            self.objectNodes[key],
-                            [[unit.pos.x, unit.pos.y]]
-                        )
-                        , axis=0
-                    )
             
             # Add your own and opponent cities
             for city in game.cities.values():
@@ -172,10 +169,19 @@ class AgentPolicy(Agent):
                             , axis=0
                         )
 
-        # Observation space: (Basic minimum for a wood miner agent)
-        # Unit:
+        # Observation space: (Basic minimum for a miner agent)
+        # Object:
         #   5x direction_nearest_wood
+        #   1x distance_nearest_wood
+        #   5x direction_nearest_coal
+        #   1x distance_nearest_coal
+        #   5x direction_nearest_uranium
+        #   1x distance_nearest_uranium
         #   5x direction_nearest_city
+        #   1x distance_nearest_city
+        #   5x direction_nearest_worker
+        #   1x distance_nearest_worker
+        # Unit:
         #   1x cargo size
         # State:
         #   1x is night
@@ -184,55 +190,82 @@ class AgentPolicy(Agent):
         #   2x worker counts [cur player, opponent]
         #   2x cart counts [cur player, opponent]
         obs = np.zeros(self.observation_shape)
+        pos = None
         if unit != None:
-            # Encode the direction to the nearest wood
-            #   5x direction_nearest_wood
-            if Constants.RESOURCE_TYPES.WOOD in self.objectNodes:
-                closestWoodIndex = closest_node((unit.pos.x, unit.pos.y), self.objectNodes[Constants.RESOURCE_TYPES.WOOD])
-                if closestWoodIndex != None and closestWoodIndex >= 0:
-                    closestWood = self.objectNodes[Constants.RESOURCE_TYPES.WOOD][closestWoodIndex]
-                    direction = unit.pos.directionTo( Position(closestWood[0], closestWood[1]) )
-                    mapping = {
-                        Constants.DIRECTIONS.CENTER: 0,
-                        Constants.DIRECTIONS.NORTH: 1,
-                        Constants.DIRECTIONS.WEST: 2,
-                        Constants.DIRECTIONS.SOUTH: 3,
-                        Constants.DIRECTIONS.EAST: 4,
-                    }
-                    obs[mapping[direction]] = 1.0 # One-hot encoding
-            obsIndex += 5
+            pos = unit.pos
+        else:
+            pos = citytile.pos
 
-            # Encode the direction to the nearest city
-            #   5x direction_nearest_city
-            if "city" in self.objectNodes:
-                closestCityIndex = closest_node((unit.pos.x, unit.pos.y), self.objectNodes["city"])
-                if closestCityIndex != None and closestCityIndex >= 0:
-                    closestCity = self.objectNodes["city"][closestCityIndex]
-                    direction = unit.pos.directionTo( Position(closestCity[0], closestCity[1]) )
-                    mapping = {
-                        Constants.DIRECTIONS.CENTER: 0,
-                        Constants.DIRECTIONS.NORTH: 1,
-                        Constants.DIRECTIONS.WEST: 2,
-                        Constants.DIRECTIONS.SOUTH: 3,
-                        Constants.DIRECTIONS.EAST: 4,
-                    }
-                    obs[obsIndex+mapping[direction]] = 1.0 # One-hot encoding
-            obsIndex += 5
-
+        if pos == None:
+            obsIndex = 6 * 5
+        else:
+            # Encode the direction to the nearest objects
+            #   5x direction_nearest
+            #   1x distance
+            for key in [
+                Constants.RESOURCE_TYPES.WOOD,
+                Constants.RESOURCE_TYPES.COAL,
+                Constants.RESOURCE_TYPES.URANIUM,
+                "city",
+                str(Constants.UNIT_TYPES.WORKER)]:
+                # Process the direction to and distance to this object type
+                
+                # Encode the direction to the nearest object (excluding itself)
+                #   5x direction
+                #   1x distance
+                if key in self.objectNodes:
+                    if (
+                            (key == "city" and citytile != None) or
+                            (unit != None and unit.type == key)
+                        ):
+                        # Filter out the current unit from the closest-search
+                        closestIndex = closest_node((pos.x, pos.y), self.objectNodes[key])
+                        filteredNodes = np.delete(self.objectNodes[key], closestIndex, axis=0)
+                    else:
+                        filteredNodes = self.objectNodes[key]
+                    
+                    if len(filteredNodes) == 0:
+                        # No other object of this type
+                        obs[obsIndex+5] = 1.0
+                    else:
+                        # There is another object of this type
+                        closestIndex = closest_node((pos.x, pos.y), filteredNodes)
+                        
+                        if closestIndex != None and closestIndex >= 0:
+                            closest = filteredNodes[closestIndex]
+                            closestPosition = Position(closest[0], closest[1])
+                            direction = pos.directionTo( closestPosition )
+                            mapping = {
+                                Constants.DIRECTIONS.CENTER: 0,
+                                Constants.DIRECTIONS.NORTH: 1,
+                                Constants.DIRECTIONS.WEST: 2,
+                                Constants.DIRECTIONS.SOUTH: 3,
+                                Constants.DIRECTIONS.EAST: 4,
+                            }
+                            obs[obsIndex+mapping[direction]] = 1.0 # One-hot encoding
+                            distance = pos.distanceTo( closestPosition )
+                            obs[obsIndex+5] = min(distance / 20.0, 1.0)
+                obsIndex += 6
+            
+        
+        if unit != None:
             # Encode the cargo space
             #   1x cargo size
             obs[obsIndex] = unit.getCargoSpaceLeft() / GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"]
             obsIndex += 1
         else:
-            obsIndex += 11
+            obsIndex += 1
         
         # Game state observations
+
         #   1x is night
         obs[obsIndex] = game.isNight()
         obsIndex += 1
+
         #   1x percent of game done
         obs[obsIndex] = game.state["turn"] / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"]
         obsIndex += 1
+
         #   2x citytile counts [cur player, opponent]
         #   2x worker counts [cur player, opponent]
         #   2x cart counts [cur player, opponent]
@@ -286,11 +319,39 @@ class AgentPolicy(Agent):
         action = self.actionCodeToAction( actionCode, game, unit, citytile, team )
         self.matchController.takeAction( action )
 
-    def getReward(self, game, isGameFinished, isNewTurn):
+    def getReward(self, game, isGameFinished, isNewTurn, isGameError):
         """
         Returns the reward function for this step of the game.
         """
+        if isGameError:
+            # Game environment step failed, assign a game lost reward to not incentivise this
+            print("Game failed due to error")
+            return -1.0
+        
         if isGameFinished:
+            # Get some basic stats
+            unitCount = len(game.state["teamStates"][(self.team)%2]["units"])
+            unitCountOpponent = len(game.state["teamStates"][(self.team+1)%2]["units"])
+            cityCount = 0
+            cityCountOpponent = 0
+            cityTileCount = 0
+            cityTileCountOpponent = 0
+            for city in game.cities.values():
+                if city.team == self.team:
+                    cityCount += 1
+                else:
+                    cityCountOpponent += 1
+                
+                for cell in city.citycells:
+                    if city.team == self.team:
+                        cityTileCount += 1
+                    else:
+                        cityTileCountOpponent += 1
+            
+            print("\tUnits: %i, %i" % (unitCount, unitCountOpponent))
+            print("\tCities: %i, %i" % (cityCount, cityCountOpponent))
+            print("\tCityTiles: %i, %i" % (cityTileCount, cityTileCountOpponent))
+
             # Give a reward of 1 or -1 based on if they won or not.
             if game.getWinningTeam() == self.team:
                 print("Won match")
@@ -353,6 +414,8 @@ if __name__ == "__main__":
     # Train the model
     #num_cpu = 4
     #env = SubprocVecEnv([make_env(LuxEnvironment(configs, learningAgent=AgentPolicy(mode="train"), opponentAgent=Agent()), i) for i in range(num_cpu)])
+    id = random.randint(0,10000)
+    print("Run id %i" % id)
     env = LuxEnvironment(configs, player, opponent)
     model = PPO("MlpPolicy",
         env,
@@ -363,7 +426,15 @@ if __name__ == "__main__":
         gae_lambda = 0.95
     )
     print("Training model...")
-    model.learn(total_timesteps=10000000)
+    stepCount = 0
+    saveInverval = 1000000 # Train 1M steps at a time
+    for i in range(100): # 100M steps
+        model.learn(total_timesteps=saveInverval)
+        stepCount += saveInverval
+
+        print("Saving model...")
+        model.save("model_id%i_step%i.model" % (id, stepCount))
+        print("Model saved.")
     print("Done training model.")
     
     # Inference the model

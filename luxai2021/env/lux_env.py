@@ -1,6 +1,6 @@
 ''' Implements the base class for a Lux enviornment '''
 from ..game.game import Game
-from ..game.match_controller import MatchController
+from ..game.match_controller import GameStepFailedException, MatchController
 from ..game.constants import Constants
 
 import gym
@@ -47,17 +47,24 @@ class LuxEnvironment(gym.Env):
         # Get the next observation
         isNewTurn = True
         isGameOver = False
+        isGameError = False
         try:
             (unit, citytile, team, isNewTurn) = next(self.matchGenerator)
+
             obs = self.learningAgent.getObservation(self.game, unit, citytile, team, isNewTurn)
             self.lastObservationObject = (unit, citytile, team, isNewTurn)
         except StopIteration as err:
             # The game episode is done.
             isGameOver = True
             obs = None
+        except GameStepFailedException as err:
+            # Game step failed, assign a game lost reward to not incentivise this
+            isGameOver = True
+            obs = None
+            isGameError = True
 
         # Calculate reward for this step
-        reward = self.learningAgent.getReward(self.game, isGameOver, isNewTurn)
+        reward = self.learningAgent.getReward(self.game, isGameOver, isNewTurn, isGameError)
         
         return obs, reward, isGameOver, {}
 

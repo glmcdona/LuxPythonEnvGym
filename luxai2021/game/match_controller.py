@@ -7,13 +7,17 @@ from .game import Game
 from .actions import *
 from .constants import Constants
 from ..env.agent import Agent
+import traceback
 
+class GameStepFailedException(Exception):
+    pass
 
 class MatchController():
     def __init__(self, game, agents = [None, None]) -> None:
         self.actionBuffer = []
         self.game = game
         self.agents = agents
+
         if len(agents) != 2:
             raise ValueError("Two agents must be specified.")
 
@@ -59,6 +63,16 @@ class MatchController():
         for action in actions:
             self.takeAction(action)
     
+    def logError(self, text):
+        # Ignore errors caused by logger
+        try:
+            if text != None:
+                with open("match_errors.txt","a") as o:
+                    o.write(text + "\n")
+        except:
+            print("Critical error in logging")
+        
+
     def runToNextObservation(self):
         """ 
             Generator function that gets the observation at the next Unit/City
@@ -102,6 +116,15 @@ class MatchController():
                         print("WARNING: Turn took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken))
             
             # Now let the game actually process the requested actions and play the turn
-            gameOver = self.game.runTurnWithActions(self.actionBuffer)
+            try:
+                gameOver = self.game.runTurnWithActions(self.actionBuffer)
+            except Exception as e:
+                # Log exception
+                self.logError("ERROR: Critical error occurred in turn simulation.")
+                self.logError(repr(e))
+                self.logError( ''.join(traceback.format_exception(None, e, e.__traceback__)) )
+                raise GameStepFailedException("Critical error occurred in turn simulation.")
+
+            
             self.actionBuffer = []
 

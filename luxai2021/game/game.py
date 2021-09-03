@@ -347,7 +347,6 @@ class Game:
             self.logFile = open("log.txt","w")
         if text != None:
             self.logFile.write(text + "\n")
-        #print(text) # TODO: Log to file as well?
 
     def validateCommand(self, cmd, accumulatedActionStats=None):
         """
