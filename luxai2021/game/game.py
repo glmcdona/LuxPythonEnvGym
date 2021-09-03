@@ -347,7 +347,6 @@ class Game:
             self.logFile = open("log.txt","w")
         if text != None:
             self.logFile.write(text + "\n")
-        #print(text) # TODO: Log to file as well?
 
     def validateCommand(self, cmd, accumulatedActionStats=None):
         """
@@ -514,8 +513,9 @@ class Game:
         # Note: I optimized this loop from the base game to potentially improve perf. Seemed
         # like this may have been one of the more-costly part of the update loop.
         for curType in miningOrder:
-            for cell in self.map.resources_by_type[curType]:
-                self.handleResourceRelease(cell)
+            if curType in self.map.resources_by_type:
+                for cell in self.map.resources_by_type[curType]:
+                    self.handleResourceRelease(cell)
 
     def handleResourceRelease(self, originalCell):
         """
@@ -683,15 +683,16 @@ class Game:
         * the wood at a wood tile grows to ceil(min(curr * 1.03, base))
         */
         """
-        for cell in self.map.resources_by_type[Constants.RESOURCE_TYPES.WOOD]:
-            # add this condition so we let forests near a city start large (but not regrow until below a max)
-            if (cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]):
-                cell.resource.amount = math.ceil(
-                    min(
-                        cell.resource.amount * self.configs["parameters"]["WOOD_GROWTH_RATE"],
-                        self.configs["parameters"]["MAX_WOOD_AMOUNT"]
+        if Constants.RESOURCE_TYPES.WOOD in self.map.resources_by_type:
+            for cell in self.map.resources_by_type[Constants.RESOURCE_TYPES.WOOD]:
+                # add this condition so we let forests near a city start large (but not regrow until below a max)
+                if (cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]):
+                    cell.resource.amount = math.ceil(
+                        min(
+                            cell.resource.amount * self.configs["parameters"]["WOOD_GROWTH_RATE"],
+                            self.configs["parameters"]["MAX_WOOD_AMOUNT"]
+                        )
                     )
-                )
 
     def handleMovementActions(self, actions):
         """
