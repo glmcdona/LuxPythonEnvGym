@@ -10,7 +10,7 @@ This is still in-progress and not ready for use yet. I'll post official docs and
 | Documentation                        | :x: |
 | All actions supported                | :x: |
 | PPO example training agent           | :heavy_check_mark:  |
-| Example agent converges to a good policy | :x: |
+| Example agent converges to a good policy | :heavy_check_mark: |
 | Kaggle submission format agents      | :x: |
 | Lux replay viewer support            | :x: |
 | Game engine consistency validation to base game       | :x: |
