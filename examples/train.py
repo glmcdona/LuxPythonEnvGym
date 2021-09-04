@@ -371,9 +371,9 @@ class AgentPolicy(Agent):
             print("Game failed due to error")
             return -1.0
 
-        if not isNewTurn:
+        if not isNewTurn and not isGameFinished:
             # Only apply rewards at the start of each turn
-            return 0 
+            return 0
 
         
         # Get some basic stats
