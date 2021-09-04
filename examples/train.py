@@ -486,8 +486,8 @@ if __name__ == "__main__":
     # Train the model
     #num_cpu = 4
     #env = SubprocVecEnv([make_env(LuxEnvironment(configs, learningAgent=AgentPolicy(mode="train"), opponentAgent=Agent()), i) for i in range(num_cpu)])
-    id = random.randint(0,10000) if not args.id else args.id
-    print("Run id %i" % id)
+    id = str(random.randint(0,10000)) if not args.id else args.id
+    print("Run id %s" % id)
     env = LuxEnvironment(configs, player, opponent)
     model = PPO("MlpPolicy",
         env,
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     print("Training model...")
     # Save a checkpoint every 1M steps
     checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
-                                         name_prefix='rl_model_%i' % id)
+                                         name_prefix='rl_model_%s' % str(id))
     model.learn(total_timesteps=100000000, callback=checkpointCallback) # 100M steps
     print("Done training model.")
     
