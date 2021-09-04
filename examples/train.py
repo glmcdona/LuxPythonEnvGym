@@ -24,6 +24,8 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 from functools import partial # pip install functools
+from typing import Callable
+
 
 # https://codereview.stackexchange.com/questions/28207/finding-the-closest-point-to-a-list-of-points
 def closest_node(node, nodes):
@@ -45,6 +47,25 @@ def make_env(env, rank, seed=0):
         return env
     set_random_seed(seed)
     return _init
+
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    """
+    Linear learning rate schedule.
+
+    :param initial_value: Initial learning rate.
+    :return: schedule that computes
+      current learning rate depending on remaining progress
+    """
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0.
+
+        :param progress_remaining:
+        :return: current learning rate
+        """
+        return progress_remaining * initial_value
+
+    return func
 
 class AgentPolicy(Agent):
     def __init__(self, mode="train", model=None) -> None:
@@ -502,7 +523,8 @@ if __name__ == "__main__":
         env,
         verbose=1,
         tensorboard_log="./lux_tensorboard/",
-        learning_rate = args.learning_rate if args.learning_rate else 0.001,
+        #learning_rate = args.learning_rate if args.learning_rate else 0.001,
+        learning_rate=linear_schedule(args.learning_rate if args.learning_rate else 0.001),
         gamma = args.gamma if args.gamma else 0.995,
         gae_lambda = args.gae_lambda if args.gae_lambda else 0.95,
         batch_size = args.batch_size if args.batch_size else 64,
@@ -513,7 +535,7 @@ if __name__ == "__main__":
     # Save a checkpoint every 1M steps
     checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
                                          name_prefix='rl_model_%s' % str(id))
-    model.learn(total_timesteps=100000000, callback=checkpointCallback) # 100M steps
+    model.learn(total_timesteps=20000000, callback=checkpointCallback) # 20M steps
     print("Done training model.")
     
     # Inference the model
