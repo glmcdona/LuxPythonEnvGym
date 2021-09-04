@@ -9,6 +9,10 @@ personal/
 # Log
 log.txt
 
+# Models
+.model
+models/
+
 # Tenserboard logs
 lux_tensorboard/
 
