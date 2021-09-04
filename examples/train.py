@@ -502,7 +502,7 @@ if __name__ == "__main__":
         env,
         verbose=1,
         tensorboard_log="./lux_tensorboard/",
-        learning_rate = args.learning_rate if args.learning_rate else 1e-06,
+        learning_rate = args.learning_rate if args.learning_rate else 0.001,
         gamma = args.gamma if args.gamma else 0.995,
         gae_lambda = args.gae_lambda if args.gae_lambda else 0.95,
         batch_size = args.batch_size if args.batch_size else 64,
