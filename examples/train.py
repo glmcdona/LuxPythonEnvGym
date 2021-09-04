@@ -5,6 +5,7 @@ from gym import spaces
 import numpy as np
 from collections import OrderedDict
 
+import argparse
 import random
 
 import time
@@ -20,8 +21,11 @@ from luxai2021.game.actions import *
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.callbacks import CheckpointCallback
 
 from functools import partial # pip install functools
+from typing import Callable
+
 
 # https://codereview.stackexchange.com/questions/28207/finding-the-closest-point-to-a-list-of-points
 def closest_node(node, nodes):
@@ -43,6 +47,25 @@ def make_env(env, rank, seed=0):
         return env
     set_random_seed(seed)
     return _init
+
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    """
+    Linear learning rate schedule.
+
+    :param initial_value: Initial learning rate.
+    :return: schedule that computes
+      current learning rate depending on remaining progress
+    """
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0.
+
+        :param progress_remaining:
+        :return: current learning rate
+        """
+        return progress_remaining * initial_value
+
+    return func
 
 class AgentPolicy(Agent):
     def __init__(self, mode="train", model=None) -> None:
@@ -78,14 +101,23 @@ class AgentPolicy(Agent):
         # Object:
         #   5x direction_nearest_wood
         #   1x distance_nearest_wood
+        #   1x amount
+        #
         #   5x direction_nearest_coal
         #   1x distance_nearest_coal
+        #   1x amount
+        #
         #   5x direction_nearest_uranium
         #   1x distance_nearest_uranium
+        #   1x amount
+        #
         #   5x direction_nearest_city
         #   1x distance_nearest_city
+        #   1x amount of fuel
+        #
         #   5x direction_nearest_worker
         #   1x distance_nearest_worker
+        #   1x amount of cargo
         # Unit:
         #   1x cargo size
         # State:
@@ -94,7 +126,7 @@ class AgentPolicy(Agent):
         #   2x citytile counts [cur player, opponent]
         #   2x worker counts [cur player, opponent]
         #   2x cart counts [cur player, opponent]
-        self.observation_shape = (6+6+6+6+6+1+1+1+2+2+2, )
+        self.observation_shape = (7*5+1+1+1+2+2+2, )
         self.observation_space = spaces.Box(low=0, high=1, shape=
                         self.observation_shape, dtype=np.float16)
 
@@ -173,14 +205,23 @@ class AgentPolicy(Agent):
         # Object:
         #   5x direction_nearest_wood
         #   1x distance_nearest_wood
+        #   1x amount
+        #
         #   5x direction_nearest_coal
         #   1x distance_nearest_coal
+        #   1x amount
+        #
         #   5x direction_nearest_uranium
         #   1x distance_nearest_uranium
+        #   1x amount
+        #
         #   5x direction_nearest_city
         #   1x distance_nearest_city
+        #   1x amount of fuel
+        #
         #   5x direction_nearest_worker
         #   1x distance_nearest_worker
+        #   1x amount of cargo
         # Unit:
         #   1x cargo size
         # State:
@@ -197,7 +238,7 @@ class AgentPolicy(Agent):
             pos = citytile.pos
 
         if pos == None:
-            obsIndex = 6 * 5
+            obsIndex = 7 * 5
         else:
             # Encode the direction to the nearest objects
             #   5x direction_nearest
@@ -242,10 +283,33 @@ class AgentPolicy(Agent):
                                 Constants.DIRECTIONS.SOUTH: 3,
                                 Constants.DIRECTIONS.EAST: 4,
                             }
-                            obs[obsIndex+mapping[direction]] = 1.0 # One-hot encoding
+                            obs[obsIndex+mapping[direction]] = 1.0 # One-hot encoding direction
+
+                            # 0 to 1 distance
                             distance = pos.distanceTo( closestPosition )
                             obs[obsIndex+5] = min(distance / 20.0, 1.0)
-                obsIndex += 6
+
+                            # 0 to 1 value (amount of resource, cargo for unit, or fuel for city)
+                            if key == "city":
+                                # City fuel
+                                obs[obsIndex+6] = min(
+                                    game.cities[game.map.getCellByPos(closestPosition).citytile.cityid].fuel / 300,
+                                    1.0
+                                )
+                            elif key in [Constants.RESOURCE_TYPES.WOOD, Constants.RESOURCE_TYPES.COAL, Constants.RESOURCE_TYPES.URANIUM]:
+                                # Resource amount
+                                obs[obsIndex+6] = min(
+                                    game.map.getCellByPos(closestPosition).resource.amount / 500,
+                                    1.0
+                                )
+                            else:
+                                # Unit cargo
+                                obs[obsIndex+6] = min(
+                                    next(iter(game.map.getCellByPos(closestPosition).units.values())).getCargoSpaceLeft() / 100,
+                                    1.0
+                                )
+
+                obsIndex += 7
             
         
         if unit != None:
@@ -327,6 +391,33 @@ class AgentPolicy(Agent):
             # Game environment step failed, assign a game lost reward to not incentivise this
             print("Game failed due to error")
             return -1.0
+
+        if not isNewTurn and not isGameFinished:
+            # Only apply rewards at the start of each turn
+            return 0
+
+        
+        # Get some basic stats
+        unitCount = len(game.state["teamStates"][(self.team)%2]["units"])
+        unitCountOpponent = len(game.state["teamStates"][(self.team+1)%2]["units"])
+        cityCount = 0
+        cityCountOpponent = 0
+        cityTileCount = 0
+        cityTileCountOpponent = 0
+        for city in game.cities.values():
+            if city.team == self.team:
+                cityCount += 1
+            else:
+                cityCountOpponent += 1
+            
+            for cell in city.citycells:
+                if city.team == self.team:
+                    cityTileCount += 1
+                else:
+                    cityTileCountOpponent += 1
+        
+        # Give a reward each turn for each tile and unit alive each turn
+        rewardState = cityTileCount*0.01 + unitCount*0.001
         
         if isGameFinished:
             # Get some basic stats
@@ -352,16 +443,18 @@ class AgentPolicy(Agent):
             print("\tCities: %i, %i" % (cityCount, cityCountOpponent))
             print("\tCityTiles: %i, %i" % (cityTileCount, cityTileCountOpponent))
 
-            # Give a reward of 1 or -1 based on if they won or not.
+            # Give a bigger reward for end-of-game unit and city count
             if game.getWinningTeam() == self.team:
                 print("Won match")
-                return 1.0
+                return rewardState*500
             else:
                 print("Lost match")
-                return -1.0
+                return rewardState*500
         else:
+            # Calculate the current reward state
             # If you want, any micro rewards or other rewards that are not win/lose end-of-game rewards
-            return 0.0
+            return rewardState
+            
 
     def processTurn(self, game, team):
         """
@@ -403,6 +496,15 @@ class AgentPolicy(Agent):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Training script for Lux RL agent.')
+    parser.add_argument('--id', help='Identifier of this run', type=str)
+    parser.add_argument('--learning_rate', help='Learning rate', type=float)
+    parser.add_argument('--gamma', help='Gamma', type=float)
+    parser.add_argument('--gae_lambda', help='GAE Lambda', type=float)
+    parser.add_argument('--batch_size', help='batch_size', type=float)
+    args = parser.parse_args()
+    print(args)
+
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
@@ -414,38 +516,38 @@ if __name__ == "__main__":
     # Train the model
     #num_cpu = 4
     #env = SubprocVecEnv([make_env(LuxEnvironment(configs, learningAgent=AgentPolicy(mode="train"), opponentAgent=Agent()), i) for i in range(num_cpu)])
-    id = random.randint(0,10000)
-    print("Run id %i" % id)
+    id = str(random.randint(0,10000)) if not args.id else args.id
+    print("Run id %s" % id)
     env = LuxEnvironment(configs, player, opponent)
     model = PPO("MlpPolicy",
         env,
         verbose=1,
         tensorboard_log="./lux_tensorboard/",
-        learning_rate = 0.0001,
-        gamma=0.995,
-        gae_lambda = 0.95
+        #learning_rate = args.learning_rate if args.learning_rate else 0.001,
+        learning_rate=linear_schedule(args.learning_rate if args.learning_rate else 0.001),
+        gamma = args.gamma if args.gamma else 0.995,
+        gae_lambda = args.gae_lambda if args.gae_lambda else 0.95,
+        batch_size = args.batch_size if args.batch_size else 64,
+        n_steps=2048*4
     )
-    print("Training model...")
-    stepCount = 0
-    saveInverval = 1000000 # Train 1M steps at a time
-    for i in range(100): # 100M steps
-        model.learn(total_timesteps=saveInverval)
-        stepCount += saveInverval
 
-        print("Saving model...")
-        model.save("model_id%i_step%i.model" % (id, stepCount))
-        print("Model saved.")
+    print("Training model...")
+    # Save a checkpoint every 1M steps
+    checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
+                                         name_prefix='rl_model_%s' % str(id))
+    model.learn(total_timesteps=20000000, callback=checkpointCallback) # 20M steps
     print("Done training model.")
     
     # Inference the model
     print("Inferencing model policy with rendering...")
     obs = env.reset()
-    for i in range(400):
+    for i in range(600):
         actionCode, _states = model.predict(obs)
         obs, rewards, done, info = env.step(actionCode)
-        if i % 50 == 0:
+        if i % 5 == 0:
             print("Turn %i" % i)
             env.render()
+
         if done:
             print("Episode done, resetting.")
             obs = env.reset()
