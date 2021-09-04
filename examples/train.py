@@ -396,7 +396,7 @@ class AgentPolicy(Agent):
                     cityTileCountOpponent += 1
         
         # Give a reward each turn for each tile and unit alive each turn
-        rewardState = cityTileCount*0.05 + unitCount*0.01
+        rewardState = cityTileCount*0.01 + unitCount*0.001
         
         if isGameFinished:
             # Get some basic stats
@@ -425,10 +425,10 @@ class AgentPolicy(Agent):
             # Give a bigger reward for end-of-game unit and city count
             if game.getWinningTeam() == self.team:
                 print("Won match")
-                return rewardState*50
+                return rewardState*500
             else:
                 print("Lost match")
-                return rewardState*50
+                return rewardState*500
         else:
             # Calculate the current reward state
             # If you want, any micro rewards or other rewards that are not win/lose end-of-game rewards
