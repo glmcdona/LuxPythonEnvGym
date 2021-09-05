@@ -470,7 +470,7 @@ class AgentPolicy(Agent):
         for unit in units:
             if unit.canAct():
                 obs = self.getObservation(game, unit, None, unit.team, newTurn )
-                actionCode, _states = self.model.predict(obs)
+                actionCode, _states = self.model.predict(obs, deterministic=True)
                 if actionCode != None:
                     actions.append(self.actionCodeToAction(actionCode, game=game, unit=unit, citytile=None, team=unit.team))
                 newTurn = False
@@ -483,7 +483,7 @@ class AgentPolicy(Agent):
                     citytile = cell.citytile
                     if citytile.canAct():
                         obs = self.getObservation(game, None, citytile, city.team, newTurn )
-                        actionCode, _states = self.model.predict(obs)
+                        actionCode, _states = self.model.predict(obs, deterministic=True)
                         if actionCode != None:
                             actions.append(self.actionCodeToAction(actionCode, game=game, unit=None, citytile=citytile, team=city.team))
                         newTurn = False
@@ -542,7 +542,7 @@ if __name__ == "__main__":
     print("Inferencing model policy with rendering...")
     obs = env.reset()
     for i in range(600):
-        actionCode, _states = model.predict(obs)
+        actionCode, _states = model.predict(obs, deterministic=True)
         obs, rewards, done, info = env.step(actionCode)
         if i % 5 == 0:
             print("Turn %i" % i)
@@ -551,7 +551,6 @@ if __name__ == "__main__":
         if done:
             print("Episode done, resetting.")
             obs = env.reset()
-        env.close()
     print("Done")
 
     # Learn with self-play against the learned model as an opponent now

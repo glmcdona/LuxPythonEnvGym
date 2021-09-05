@@ -12,17 +12,13 @@ import math
 UNIT_TYPES = Constants.UNIT_TYPES
 
 class Unit(Actionable):
-    def __init__(self, x, y, type, team, configs, idcount):
-        super().__init__(configs)
+    def __init__(self, x, y, type, team, configs, idcount, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+        super().__init__(configs, cooldown)
         self.pos = Position(x, y)
         self.team = team
         self.type = type
         self.id = "u_%i" % idcount
-        self.cargo = {
-            "wood": 0,
-            "uranium": 0,
-            "coal": 0,
-        }
+        self.cargo = cargo
     
     def isWorker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
@@ -140,8 +136,8 @@ class Worker(Unit):
     """
     Worker class. Mirrors /src/Unit/index.ts -> Worker()
     """
-    def __init__(self, x, y, team, configs, idcount):
-        super().__init__(x, y, Constants.UNIT_TYPES.WORKER, team, configs, idcount)
+    def __init__(self, x, y, team, configs, idcount, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+        super().__init__(x, y, Constants.UNIT_TYPES.WORKER, team, configs, idcount, cooldown, cargo)
     
     def getLightUpkeep(self):
         return self.configs["parameters"]["LIGHT_UPKEEP"]["WORKER"]
@@ -198,8 +194,8 @@ class Cart(Unit):
     """
     Cart class. Mirrors /src/Unit/index.ts -> Cart()
     """
-    def __init__(self, x, y, team, configs, idcount):
-        super().__init__(x, y, Constants.UNIT_TYPES.CART, team, configs, idcount)
+    def __init__(self, x, y, team, configs, idcount, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+        super().__init__(x, y, Constants.UNIT_TYPES.CART, team, configs, idcount, cooldown, cargo)
     
     def getLightUpkeep(self):
         return self.configs["parameters"]["LIGHT_UPKEEP"]["CART"]

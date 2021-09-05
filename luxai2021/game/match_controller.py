@@ -81,6 +81,10 @@ class MatchController():
         """
         gameOver = False
         while not gameOver:
+            # Run pre-turn agent events to allow for them to handle running the turn instead (used in a kaggle submission agent)
+            for agent in self.agents:
+                agent.preTurn(self.game)
+
             # Process this turn
             for agent in self.agents:
                 if agent.getAgentType() == Constants.AGENT_TYPE.AGENT:
@@ -117,7 +121,14 @@ class MatchController():
             
             # Now let the game actually process the requested actions and play the turn
             try:
-                gameOver = self.game.runTurnWithActions(self.actionBuffer)
+                # Run post-turn agent events to allow for them to handle running the turn instead (used in a kaggle submission agent)
+                handled = False
+                for agent in self.agents:
+                    if agent.postTurn(self.game, self.actionBuffer):
+                        handled = True
+                
+                if not handled:
+                    gameOver = self.game.runTurnWithActions(self.actionBuffer)
             except Exception as e:
                 # Log exception
                 self.logError("ERROR: Critical error occurred in turn simulation.")

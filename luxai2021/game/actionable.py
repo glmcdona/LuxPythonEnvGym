@@ -8,10 +8,10 @@ class Actionable:
         COAL = 'coal'
         URANIUM = 'uranium'
 
-    def __init__(self, configs) -> None:
+    def __init__(self, configs, cooldown = 0.0) -> None:
         self.configs = configs
         self.currentActions = []
-        self.cooldown = 0.0
+        self.cooldown = cooldown
     
     def canAct(self) -> bool:
         return self.cooldown < 1

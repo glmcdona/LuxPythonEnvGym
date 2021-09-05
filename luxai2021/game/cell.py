@@ -28,8 +28,8 @@ class Cell:
     def hasResource(self):
         return self.resource is not None and self.resource.amount > 0
     
-    def setCityTile(self, team, cityid):
-        self.citytile = CityTile(team, self.configs)
+    def setCityTile(self, team, cityid, cooldown=0.0):
+        self.citytile = CityTile(team, self.configs, cooldown)
         self.citytile.pos = self.pos
         self.citytile.cityid = cityid
     
