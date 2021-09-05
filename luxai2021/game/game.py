@@ -478,9 +478,9 @@ class Game:
             for id in cityIdsFound:
                 if id != cityid:
                     oldcity = self.cities[id]
-                    for cell in oldcity.citycells:
-                        cell.citytile.cityid = cityid
-                        city.addCityTile(cell)
+                    for cell3 in oldcity.citycells:
+                        cell3.citytile.cityid = cityid
+                        city.addCityTile(cell3)
                 
                     city.fuel += oldcity.fuel
                     self.cities.pop(oldcity.id)
