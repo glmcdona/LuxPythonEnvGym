@@ -12,11 +12,14 @@ import math
  */
  '''
 class City:
-    def __init__(self, team, configs, idcount):
+    def __init__(self, team, configs, idcount, cityid = None, fuel = 0):
         self.team = team
         self.configs = configs
-        self.id = "c_%i" % idcount
-        self.fuel = 0
+        if cityid:
+            self.id = cityid
+        else:
+            self.id = "c_%i" % idcount
+        self.fuel = fuel
         self.citycells = []
     
     def getLightUpkeep(self):
@@ -33,12 +36,12 @@ class City:
 
 
 class CityTile(Actionable):
-    def __init__(self, team, configs) -> None:
+    def __init__(self, team, configs, cooldown=0.0) -> None:
         self.team = team
         self.pos = None
         self.cityid = None
         self.adjacentCityTiles = 0
-        super().__init__(configs)
+        super().__init__(configs, cooldown)
     
     def getTileID(self):
         return f"{{self.cityid}}_{{self.pos.x}}_{{self.pos.y}}"

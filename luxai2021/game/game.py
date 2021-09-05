@@ -1,3 +1,4 @@
+from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, ResearchAction, TransferAction
 import gym
 from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
@@ -20,8 +21,13 @@ class Game:
         self.reset()
         self.logFile = None
 
-    def reset(self):
-        ''' Resets the game for another game. '''
+    def reset(self, updates = None):
+        '''
+            Resets the game for another game.
+            Updates are optionally a list of command messages from the kaggle controller
+            that defines the state of the game to reset the game to. This gets sent from
+            the kaggle server to our engine each turn.
+        '''
         self.globalCityIDCount = 0
         self.globalUnitIDCount = 0
         self.cities = {} # string -> City
@@ -79,9 +85,84 @@ class Game:
             }
         }
 
+        if updates != None:
+            # Parse the map size update message, it's always the first message of a turn
+            mapInfo = updates.pop().split(" ")
+            self.configs["width"] = int(mapInfo[0])
+            self.configs["height"] = int(mapInfo[1])
+            
+            # Use an empty map, because the updates will fill the map out
+            self.configs["mapType"] = Constants.MAP_TYPES.EMPTY 
+        
         # Generate the map
         self.map = GameMap(self.configs)
         self.map.generateMap(self)
+
+        if updates != None:
+            # Loop through updating the game from the list of updates
+            # Implements /kits/python/simple/lux/game.py -> _update()
+            for update in updates:
+                if update == "D_DONE":
+                    break
+                strs = update.split(" ")
+                input_identifier = strs[0]
+                if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
+                    team = int(strs[1])
+                    self.state["teamStates"][team]["researchPoints"] = int(strs[2])
+
+                    if int(strs[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
+                        self.state["teamStates"][team]["researched"]["coal"] = True
+                    
+                    if int(strs[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
+                        self.state["teamStates"][team]["researched"]["uranium"] = True
+
+                elif input_identifier == INPUT_CONSTANTS.RESOURCES:
+                    r_type = strs[1]
+                    x = int(strs[2])
+                    y = int(strs[3])
+                    amt = int(float(strs[4]))
+                    self.map.addResource(x, y, r_type, amt)
+                
+                elif input_identifier == INPUT_CONSTANTS.UNITS:
+                    unittype = int(strs[1])
+                    team = int(strs[2])
+                    unitid = strs[3]
+                    x = int(strs[4])
+                    y = int(strs[5])
+                    cooldown = float(strs[6])
+                    wood = int(strs[7])
+                    coal = int(strs[8])
+                    uranium = int(strs[9])
+                    if unittype == Constants.UNIT_TYPES.WORKER:
+                        self.spawnWorker(team, x, y, unitid, cooldown=cooldown, cargo={"wood": wood, "uranium": uranium, "coal":coal})
+                    elif unittype == Constants.UNIT_TYPES.CART:
+                        self.spawnCart(team, x, y, unitid, cooldown=cooldown, cargo={"wood": wood, "uranium": uranium, "coal":coal})
+                
+                elif input_identifier == INPUT_CONSTANTS.CITY:
+                    team = int(strs[1])
+                    cityid = strs[2]
+                    fuel = float(strs[3])
+                    lightupkeep = float(strs[4]) # Unused
+                    self.cities[team].cities[cityid] = City(team, self.configs, None, cityid, fuel)
+                
+                elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
+                    team = int(strs[1])
+                    cityid = strs[2]
+                    x = int(strs[3])
+                    y = int(strs[4])
+                    cooldown = float(strs[5])
+                    city = self.cities[team][cityid]
+                    cell = self.map.getCell(x, y)
+                    cell.setCityTile(team, cityid, cooldown)
+                    city.addCityTile(cell)
+
+                    self.stats["teamStats"][team]["cityTilesBuilt"] += 1
+                
+                elif input_identifier == INPUT_CONSTANTS.ROADS:
+                    x = int(strs[1])
+                    y = int(strs[2])
+                    road = float(strs[3])
+                    self.map.getCell(x, y).road = road
 
     def _genInitialAccumulatedActionStats(self):
         """
@@ -101,6 +182,106 @@ class Game:
                 },
             }
     
+    def actionFromCommand(self, cmd):
+        """
+        Converts a match text command to an action. Validation is handled elsewhere.
+        This is used in Kaggle submissions to decode actions taken and update the game.
+        Somewhat implements src/Game/index.ts -> Game.validateCommand()
+        """
+        invalidMsg = f"Agent {{cmd.agentID}} sent invalid command"
+        malformedMsg = f"Agent {{cmd.agentID}} sent malformed command: {{cmd.command}}";
+
+        def check(condition, errormsg, trace = True):
+            if (condition):
+                if trace:
+                    raise Exception(errormsg + f"; turn {{self.state['turn']}}; cmd: {{cmd.command}}")
+                else:
+                    raise Exception(errormsg)
+        
+        # Tokenize command
+        args = cmd.command.split(' ')
+        check(len(args) > 0, invalidMsg)
+        action = args[0]
+        args = args[1:]
+
+        # Load the team details
+        team = cmd.agentID
+        teamState = self.state["teamStates"][team]
+        
+        # Construct the action
+        result = None
+        if action == Constants.ACTIONS.PILLAGE:
+            check(len(args) != 1, malformedMsg)
+            uid = args[0]
+            
+            unit = self.getUnit(team, uid)
+            check(unit == None, invalidMsg)
+            result = PillageAction(team, uid)
+        
+        elif action == Constants.ACTIONS.BUILD_CITY:
+            check(len(args) != 1, malformedMsg)
+            uid = args[0]
+
+            unit = self.getUnit(team, uid)
+            check(unit == None, invalidMsg)
+            
+            result = SpawnCityAction(team, uid)
+        
+        elif action == Constants.ACTIONS.BUILD_CART:
+            check(len(args) != 2, malformedMsg)
+
+            x = int(args[0])
+            y = int(args[1])
+
+            result = SpawnCartAction(team, None, x, y)
+        
+        elif action == Constants.ACTIONS.BUILD_WORKER:
+            check(len(args) != 2, malformedMsg)
+
+            x = int(args[0])
+            y = int(args[1])
+
+            result = SpawnWorkerAction(team, None, x, y)
+        
+        elif action == Constants.ACTIONS.MOVE:
+            check(len(args) != 2, malformedMsg)
+
+            uid = args[0]
+            direction = args[1]
+
+            result = MoveAction(team, uid, direction)
+        
+        elif action == Constants.ACTIONS.RESEARCH:
+            check(len(args) != 2, malformedMsg)
+
+            x = int(args[0])
+            y = int(args[1])
+
+            result = ResearchAction(team, x, y)
+        
+        elif action == Constants.ACTIONS.TRANSFER:
+            check(len(args) != 4, malformedMsg)
+
+            srcID = args[0]
+            destID = args[1]
+            resourceType = args[2]
+            amount = int(args[3])
+
+            result = TransferAction(
+                team,
+                srcID,
+                destID,
+                resourceType,
+                amount
+            )
+        
+        # Validate the action
+        # TODO: Add valitation of accumulated actions?
+        if result != None and result.isValid(self):
+            return result
+
+        return None
+
 
     def runTurnWithActions(self, actions):
         """
@@ -356,15 +537,6 @@ class Game:
         if accumulatedActionStats is None:
             accumulatedActionStats = self._genInitialAccumulatedActionStats()
 
-        def check(condition, errormsg, trace = True):
-            if (condition):
-                if trace:
-                    raise Exception(errormsg + "; turn ${this.state.turn}; cmd: ${cmd.command}")
-                else:
-                    raise Exception(errormsg)
-        
-        
-
         
         # TODO: IMPLEMENT THIS
         return cmd
@@ -388,7 +560,7 @@ class Game:
         """
         return self.worker_unit_cap_reached(team, offset)
     
-    def spawnWorker(self, team, x, y, unitid = None):
+    def spawnWorker(self, team, x, y, unitid = None, cooldown = 0.0, cargo = {"wood": 0, "uranium": 0, "coal":0}):
         """
         Spawns new worker
         Implements src/Game/index.ts -> Game.spawnWorker()
@@ -399,7 +571,9 @@ class Game:
             y,
             team,
             self.configs,
-            self.globalUnitIDCount + 1
+            self.globalUnitIDCount + 1,
+            cooldown,
+            cargo
         )
 
         if unitid:
