@@ -443,10 +443,10 @@ class Game:
         cityIdsFound = set()
 
         adjSameTeamCityTiles = []
-        for cell in adjCells:
-            if cell.isCityTile() and cell.citytile.team == team:
-                adjSameTeamCityTiles.append(cell)
-                cityIdsFound.add(cell.citytile.cityid)
+        for cell2 in adjCells:
+            if cell2.isCityTile() and cell2.citytile.team == team:
+                adjSameTeamCityTiles.append(cell2)
+                cityIdsFound.add(cell2.citytile.cityid)
 
         # if no adjacent city cells of same team, generate new city
         if len(adjSameTeamCityTiles) == 0:
