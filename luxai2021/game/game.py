@@ -510,89 +510,108 @@ class Game:
             Constants.RESOURCE_TYPES.WOOD,
         ]
 
-        # Note: I optimized this loop from the base game to potentially improve perf. Seemed
-        # like this may have been one of the more-costly part of the update loop.
         for curType in miningOrder:
-            if curType in self.map.resources_by_type:
-                for cell in self.map.resources_by_type[curType]:
-                    self.handleResourceRelease(cell)
+            self.handleResourceTypeRelease(curType)
 
-    def handleResourceRelease(self, originalCell):
+
+    def handleResourceTypeRelease(self, resourceType):
         """
-        For cells with resources, this will release the resource to all adjacent workers (including any unit on top)
-        Implements src/Game/index.ts -> Game.handleResourceRelease()
-
-        * For cells with resources, this will release the resource to all adjacent workers (including any unit on top) in a
-        * even manner and taking in account for the worker's team's research level. This is effectively a worker mining.
-        *
-        * Workers adjacent will only receive resources if they can mine it. They will
-        * never receive more than they carry
-        *
-        * This function is called on cells in the order of uranium, coal, then wood resource deposits
-        *
-        *
-        * @param cell - a cell with a resource
+        * For each unit, check current and orthoganally adjancent cells for that resource
+        * type. If found, request as much as we can carry from these cells. In the case of un-even 
+        * amounts, the unit will request an equal amount from all tiles to fill their cargo, then
+        * discard the rest. (for example on 3 wood tiles with 60 wood it would request 17 to each
+        * wood tile and discard/waste the extra 1 wood mined).
+        * 
+        * If the unit is on a city tile, only one request will be made (even if there are 
+        * multiple workers on the tile )and the resources will be deposited into the city as fuel.
+        * 
+        * Once all units have requested resources, distrubte the resources, reducing requests
+        * requests if it would exceed the current value. In this case the remaining
+        * will be distributed evenly, with the leftovers discarded.
+        * 
+        * @param resourceType - the type of the resource
+        * Description copy pasted from src/Game/index.ts -> Game.handleResourceTypeRelease()
         """
-        if (originalCell.hasResource()):
-            type = originalCell.resource.type
-            cells = [originalCell] + self.map.getAdjacentCells(originalCell)
-            workersToReceiveResources = []
-            for cell in cells:
-                if (cell.isCityTile() and len(cell.units) > 0 and self.state["teamStates"][cell.citytile.team]["researched"][type]):
-                    workersToReceiveResources.append(cell.citytile)
-                else:
-                    for unit in cell.units.values():
-                        # note, this loop only appends one unit to the array since we can only have one unit per city tile
-                        if unit.type == Constants.UNIT_TYPES.WORKER and self.state["teamStates"][unit.team]["researched"][type]:
-                            workersToReceiveResources.append(unit)
+        # build up the resource requests
+        requests = self.createResourceRequests(resourceType)
 
-            def isWorker(pet):
-                return isinstance(pet, Worker)
-            
-            type_map = {
+        # resolve resource requests
+        self.resolveResourceRequests(resourceType, requests)
+
+
+    class ResourceRequest:
+        def __init__(self, fromPos, amount, worker, city):
+            self.fromPos = fromPos
+            self.amount = amount
+            self.worker = worker
+            self.city = city
+
+        def __eq__(self, other) -> bool:
+            return ( 
+                self.fromPos == other.fromPos
+                and (self.worker.id if self.worker else None) == (other.worker.id if other.worker else None)
+                and self.amount == other.amount
+                and (self.city.id if self.city else None) == (other.city.id if other.city else None)
+                )
+    
+    def createResourceRequests(self, resourceType):
+        type_map = {
                 Constants.RESOURCE_TYPES.WOOD : "WOOD",
                 Constants.RESOURCE_TYPES.COAL : "COAL",
                 Constants.RESOURCE_TYPES.URANIUM : "URANIUM",
-            }
-            rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type_map[type]]
-            conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_map[type]]
+        }
+        miningRate = rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type_map[resourceType]]
+        reqs = {}
+        for team in [Constants.TEAM.A, Constants.TEAM.B]:
+            if self.state["teamStates"][team]["researched"][resourceType]:
+                for unit in self.state["teamStates"][team]["units"].values():
+                    if unit.type == Constants.UNIT_TYPES.WORKER:
+                        unitCell = self.map.getCellByPos(unit.pos)
+                        cells = [unitCell] + self.map.getAdjacentCells(unitCell)
+                        minable = [c for c in cells if c.hasResource() and c.resource.type == resourceType]
+                        if len(minable) > 0:
+                            mineAmount = min(math.ceil(unit.getCargoSpaceLeft() / len(minable)), miningRate)
+                        for cell in minable:
+                            if cell.pos not in reqs:
+                                reqs[cell.pos] = []
+                            req = Game.ResourceRequest(
+                                unit.pos, 
+                                mineAmount, 
+                                None if unitCell.isCityTile() else unit, 
+                                self.cities[unitCell.citytile.cityid] if unitCell.isCityTile() else None, 
+                                )
+                            hasReq = req in reqs[cell.pos]
+                            if not hasReq:
+                                reqs[cell.pos].append(req)
+        return reqs
 
-            # find out how many resources to distribute and release
-            amountToDistribute = rate * len(workersToReceiveResources)
-            amountDistributed = 0
-            # distribute only as much as the cell contains
-            amountToDistribute = min(
-                amountToDistribute,
-                originalCell.resource.amount
-            )
-
-            # distribute resources as evenly as possible
-
-            # sort from least space to most so those with more capacity will have the correct distribution of resources before we reach cargo capacity
-            workersToReceiveResources.sort(key=lambda s: s.getCargoSpaceLeft(), reverse=True) # TODO: Validate Cities get prioritized correctly here. Cities get last priority with this.
-            
-            for i, entity in enumerate(workersToReceiveResources):
-                spaceLeft = entity.getCargoSpaceLeft()
-                maxReceivable = amountToDistribute / (len(workersToReceiveResources) - i)
-                
-                distributeAmount = min(spaceLeft, maxReceivable, rate)
-                # we give workers a floored amount for sake of integers and effectiely waste the remainder
-                if (isWorker(entity)):
-                    entity.cargo[type] += math.floor(distributeAmount)
-                else:
-                    city = self.cities.get(entity.cityid)
-                    city.fuel += conversionRate * math.floor(distributeAmount)
-
-                amountDistributed += distributeAmount
-
-                # update stats
-                self.stats["teamStats"][entity.team]["resourcesCollected"][type] += math.floor(distributeAmount)
-
-                # subtract how much was given.
-                amountToDistribute -= distributeAmount
-            
-            originalCell.resource.amount -= amountDistributed
-
+    def resolveResourceRequests(self, resourceType, requests):
+        type_map = {
+                Constants.RESOURCE_TYPES.WOOD : "WOOD",
+                Constants.RESOURCE_TYPES.COAL : "COAL",
+                Constants.RESOURCE_TYPES.URANIUM : "URANIUM",
+        }
+        conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_map[resourceType]]
+        for position, reqs in requests.items():
+            amountLeft = self.map.getCellByPos(position).resource.amount
+            amountsReqs = reqs # dont make tuples like typescript reference implementation
+            while len(amountsReqs) > 0 and sum([req.amount for req in amountsReqs]) > 0 and amountLeft > 0:
+                toFill = min(min([req.amount for req in amountsReqs]), math.floor(amountLeft/len(amountsReqs)))
+                for r in amountsReqs:
+                    if r.city is not None:
+                        self.stats["teamStats"][r.city.team]["resourcesCollected"][resourceType] += toFill
+                        r.city.fuel += toFill * conversionRate
+                    else:
+                        toGive = min(r.worker.getCargoSpaceLeft(), toFill)
+                        self.stats["teamStats"][r.worker.team]["resourcesCollected"][resourceType] += toGive
+                        r.worker.cargo[resourceType] += toGive
+                    r.amount -= toFill
+                amountLeft -= toFill * len(amountsReqs)
+                if amountLeft < len(amountsReqs):
+                    amountLeft = 0
+                amountsReqs = list(filter(lambda r: r.amount>0, amountsReqs))
+            cell = self.map.getCellByPos(position)
+            cell.resource.amount = amountLeft
         
     
     def handleResourceDeposit(self, unit):

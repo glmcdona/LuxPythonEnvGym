@@ -30,6 +30,9 @@ class Position:
     def equals(self, pos):
         return self == pos
 
+    def __hash__(self):
+        return 10000 * self.x + self.y # works as long as maps are at most 10000 by 10000
+
     def translate(self, direction, units) -> 'Position':
         if direction == DIRECTIONS.NORTH:
             return Position(self.x, self.y - units)
