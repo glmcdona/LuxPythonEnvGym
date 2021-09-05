@@ -116,8 +116,6 @@ class MatchController():
                                     newTurn = False
                     
                     timeTaken = time.time() - startTime
-                    if timeTaken > 0.5: # Warn if larger than 0.5 seconds.
-                        print("WARNING: Turn took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken))
             
             # Now let the game actually process the requested actions and play the turn
             try:

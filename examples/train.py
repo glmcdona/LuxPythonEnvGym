@@ -502,6 +502,7 @@ if __name__ == "__main__":
     parser.add_argument('--gamma', help='Gamma', type=float)
     parser.add_argument('--gae_lambda', help='GAE Lambda', type=float)
     parser.add_argument('--batch_size', help='batch_size', type=float)
+    parser.add_argument('--step_count', help='Total number of steps to train', type=int)
     args = parser.parse_args()
     print(args)
 
@@ -528,14 +529,14 @@ if __name__ == "__main__":
         gamma = args.gamma if args.gamma else 0.995,
         gae_lambda = args.gae_lambda if args.gae_lambda else 0.95,
         batch_size = args.batch_size if args.batch_size else 64,
-        n_steps=2048*4
+        n_steps=2048*8
     )
 
     print("Training model...")
     # Save a checkpoint every 1M steps
     checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
                                          name_prefix='rl_model_%s' % str(id))
-    model.learn(total_timesteps=20000000, callback=checkpointCallback) # 20M steps
+    model.learn(total_timesteps= args.step_count if args.step_count else 20000000, callback=checkpointCallback) # 20M steps
     print("Done training model.")
     
     # Inference the model
