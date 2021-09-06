@@ -34,6 +34,7 @@ You can then run tensorboard to monitor the training:
 Place your trained model as "model.zip" in the same folder as ./examples/main.py.
 
 Assuming you have the lux-ai-2021 tools installed, you can then run a kaggle match and generate replays locally, eg:
+
 ```lux-ai-2021 --seed=100 main.py main.py --maxtime 10000```
 
 TBD: Working on creating the format of the submission.zip that installs dependencies correctly.
