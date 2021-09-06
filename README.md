@@ -29,3 +29,11 @@ Now edit and run your ML agent training code:
 You can then run tensorboard to monitor the training:
 
 ```tensorboard --logdir lux_tensorboard```
+
+## Kaggle submissions of your agent
+Place your trained model as "model.zip" in the same folder as ./examples/main.py.
+
+Assuming you have the lux-ai-2021 tools installed, you can then run a kaggle match and generate replays locally, eg:
+```lux-ai-2021 --seed=100 main.py main.py --maxtime 10000```
+
+TBD: Working on creating the format of the submission.zip that installs dependencies correctly.
