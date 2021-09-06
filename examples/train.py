@@ -12,11 +12,12 @@ import time
 import json
 import datetime as dt
 import os
+import sys
 
 from stable_baselines3 import PPO # pip install stable-baselines3
 from luxai2021.env.lux_env import LuxEnvironment
-from luxai2021.env.agent import Agent
-from luxai2021.game.constants import LuxMatchConfigs_Default
+from luxai2021.env.agent import Agent, AgentFromStdInOut
+
 from luxai2021.game.actions import *
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
@@ -420,40 +421,17 @@ class AgentPolicy(Agent):
         rewardState = cityTileCount*0.01 + unitCount*0.001
         
         if isGameFinished:
-            # Get some basic stats
-            unitCount = len(game.state["teamStates"][(self.team)%2]["units"])
-            unitCountOpponent = len(game.state["teamStates"][(self.team+1)%2]["units"])
-            cityCount = 0
-            cityCountOpponent = 0
-            cityTileCount = 0
-            cityTileCountOpponent = 0
-            for city in game.cities.values():
-                if city.team == self.team:
-                    cityCount += 1
-                else:
-                    cityCountOpponent += 1
-                
-                for cell in city.citycells:
-                    if city.team == self.team:
-                        cityTileCount += 1
-                    else:
-                        cityTileCountOpponent += 1
-            
-            print("\tUnits: %i, %i" % (unitCount, unitCountOpponent))
-            print("\tCities: %i, %i" % (cityCount, cityCountOpponent))
-            print("\tCityTiles: %i, %i" % (cityTileCount, cityTileCountOpponent))
-
             # Give a bigger reward for end-of-game unit and city count
             if game.getWinningTeam() == self.team:
-                print("Won match")
-                return rewardState*500
+                #print("Won game. %i cities, %i citytiles, %i units." % (cityCount, cityTileCount, unitCount))
+                return rewardState*800
             else:
-                print("Lost match")
-                return rewardState*500
+                #print("Lost game. %i cities, %i citytiles, %i units." % (cityCount, cityTileCount, unitCount))
+                return rewardState*800
         else:
             # Calculate the current reward state
             # If you want, any micro rewards or other rewards that are not win/lose end-of-game rewards
-            return rewardState
+            return rewardState * (cityTileCount + unitCount) # As unit count increases, loss automatically decreases without this compensation because there are more steps per turn, and one reward per turn.
             
 
     def processTurn(self, game, team):
@@ -490,7 +468,7 @@ class AgentPolicy(Agent):
 
         timeTaken = time.time() - startTime
         if timeTaken > 0.5: # Warn if larger than 0.5 seconds.
-            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken))
+            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken), file=sys.stderr)
         
         return actions
 
@@ -502,9 +480,12 @@ if __name__ == "__main__":
     parser.add_argument('--gamma', help='Gamma', type=float)
     parser.add_argument('--gae_lambda', help='GAE Lambda', type=float)
     parser.add_argument('--batch_size', help='batch_size', type=float)
+    parser.add_argument('--step_count', help='Total number of steps to train', type=int)
     args = parser.parse_args()
+
     print(args)
 
+    # Run a training job
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
@@ -528,14 +509,14 @@ if __name__ == "__main__":
         gamma = args.gamma if args.gamma else 0.995,
         gae_lambda = args.gae_lambda if args.gae_lambda else 0.95,
         batch_size = args.batch_size if args.batch_size else 64,
-        n_steps=2048*4
+        n_steps=2048*8
     )
 
     print("Training model...")
     # Save a checkpoint every 1M steps
     checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
-                                         name_prefix='rl_model_%s' % str(id))
-    model.learn(total_timesteps=20000000, callback=checkpointCallback) # 20M steps
+                                        name_prefix='rl_model_%s' % str(id))
+    model.learn(total_timesteps= args.step_count if args.step_count else 20000000, callback=checkpointCallback) # 20M steps
     print("Done training model.")
     
     # Inference the model
@@ -552,7 +533,8 @@ if __name__ == "__main__":
             print("Episode done, resetting.")
             obs = env.reset()
     print("Done")
-
+    
+    '''
     # Learn with self-play against the learned model as an opponent now
     print("Training model with self-play against last version of model...")
     player = AgentPolicy(mode="train")
@@ -570,4 +552,6 @@ if __name__ == "__main__":
     model.learn(total_timesteps=2000)
     env.close()
     print("Done")
+    '''
     
+        

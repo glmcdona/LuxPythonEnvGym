@@ -63,8 +63,8 @@ class GameMap:
         if ("height" not in self.configs):
             self.configs["height"] = size
 
-        self.width = size
-        self.height = size
+        self.width = self.configs["width"]
+        self.height = self.configs["height"]
         
         # Create map tiles
         self.map: List[List[Cell]] = [None] * self.height

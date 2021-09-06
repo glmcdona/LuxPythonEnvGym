@@ -1,3 +1,4 @@
+import sys
 from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, ResearchAction, TransferAction
 import gym
 from .constants import Constants, LuxMatchConfigs_Default
@@ -84,15 +85,6 @@ class Game:
                 },
             }
         }
-
-        if updates != None:
-            # Parse the map size update message, it's always the first message of a turn
-            mapInfo = updates.pop().split(" ")
-            self.configs["width"] = int(mapInfo[0])
-            self.configs["height"] = int(mapInfo[1])
-            
-            # Use an empty map, because the updates will fill the map out
-            self.configs["mapType"] = Constants.MAP_TYPES.EMPTY 
         
         # Generate the map
         self.map = GameMap(self.configs)
@@ -105,6 +97,8 @@ class Game:
                 if update == "D_DONE":
                     break
                 strs = update.split(" ")
+                print(strs, file=sys.stderr)
+
                 input_identifier = strs[0]
                 if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
                     team = int(strs[1])
@@ -143,7 +137,7 @@ class Game:
                     cityid = strs[2]
                     fuel = float(strs[3])
                     lightupkeep = float(strs[4]) # Unused
-                    self.cities[team].cities[cityid] = City(team, self.configs, None, cityid, fuel)
+                    self.cities[cityid] = City(team, self.configs, None, cityid, fuel)
                 
                 elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
                     team = int(strs[1])
@@ -151,7 +145,7 @@ class Game:
                     x = int(strs[3])
                     y = int(strs[4])
                     cooldown = float(strs[5])
-                    city = self.cities[team][cityid]
+                    city = self.cities[cityid]
                     cell = self.map.getCell(x, y)
                     cell.setCityTile(team, cityid, cooldown)
                     city.addCityTile(cell)
@@ -312,7 +306,7 @@ class Game:
             except Exception as e:
                 self.log("Error processing action")
                 self.log(repr(e))
-                self.log(traceback.print_exc())
+                self.log(''.join(traceback.format_exception(None, e, e.__traceback__)))
 
         # give units and city tiles their validated actions to use
         if Constants.ACTIONS.BUILD_CITY in actionsMap:
@@ -362,7 +356,7 @@ class Game:
                 except Exception as e:
                     self.log("Critical error handling city turn.")
                     self.log(repr(e))
-                    self.log(traceback.print_exc())
+                    self.log(''.join(traceback.format_exception(None, e, e.__traceback__)))
 
         teams = [Constants.TEAM.A, Constants.TEAM.B]
         for team in teams:
@@ -372,7 +366,7 @@ class Game:
                 except Exception as e:
                     self.log("Critical error handling unit turn.")
                     self.log(repr(e))
-                    self.log(traceback.print_exc())
+                    self.log(''.join(traceback.format_exception(None, e, e.__traceback__)))
 
         # distribute all resources in order of decreasing fuel efficiency
         self.distributeAllResources()

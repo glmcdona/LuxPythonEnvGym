@@ -55,7 +55,8 @@ class AgentFromStdInOut(Agent):
         Implements an agent opponent
         """
         self.team = None
-        self.playerId = None
+        self.initializedPlayer = False
+        self.initializedMap = False
     
     def preTurn(self, game):
         """
@@ -68,20 +69,33 @@ class AgentFromStdInOut(Agent):
         #    /Lux-AI-Challenge/Lux-Design-2021/blob/master/kits/python/simple/main.py
         #    AND /kits/python/simple/agent.py agent(observation, configuration)
         updates = []
-        initialize = False
         while True:
-            input = input()
+            message = input()
 
-            if self.playerId == None:
-                self.playerId = input
-                initialize = True
-            else:
-                updates.append(input)
+            if self.initializedPlayer == False:
+                team = int(message)
+                self.setTeam((team+1)%2)
+                self.matchController.setOpponentTeam(self, team)
+                
+                self.initializedPlayer = True
             
-            if input == "D_DONE": # End of turn data marker
+            elif self.initializedMap == False:
+                # Parse the map size update message, it's always the second message of the game
+                mapInfo = message.split(" ")
+                game.configs["width"] = int(mapInfo[0])
+                game.configs["height"] = int(mapInfo[1])
+
+                # Use an empty map, because the updates will fill the map out
+                game.configs["mapType"] = Constants.MAP_TYPES.EMPTY 
+
+                self.initializedMap = True
+            else:
+                updates.append(message)
+            
+            if message == "D_DONE": # End of turn data marker
                 break
-        
-        # Reset the game to the specified state    
+
+        # Reset the game to the specified state
         game.reset(updates = updates)
 
     def postTurn(self, game, actions):
@@ -90,4 +104,15 @@ class AgentFromStdInOut(Agent):
             Returns True if it handled the turn (don't run our game engine)
         """
         # TODO: Send the list of actions to stdout in the correct format.
+        messages = []
+        for action in actions:
+            messages.append(action.toMessage(game))
+        
+        # Print the messages to the kaggle controller
+        if len(messages) > 0:
+            print(",".join(messages))
+        print("D_FINISH")
+        
+        # True here instructs the controller to not simulate the actions. Instead the kaggle controller will
+        # run the turn and send back pre-turn map state.
         return True

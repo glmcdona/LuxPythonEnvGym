@@ -8,10 +8,15 @@ personal/
 
 # Log
 log.txt
+match_errors.txt
 
 # Models
 .model
 models/
+*.zip
+
+# Replays
+replays
 
 # Tenserboard logs
 lux_tensorboard/

@@ -16,6 +16,15 @@ class Action:
         Returns True if it's valid, False otherwise
         """
         return True
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        raise Exception("NOT IMPLEMENTED")
+
 
 
 class MoveAction(Action):
@@ -48,6 +57,14 @@ class MoveAction(Action):
         
         # Note: Collisions are handled in the turn loop as both players move
         return True
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "m {} {}".format(self.unitid, self.direction)
 
 class SpawnAction(Action):
     def __init__(self, action, team, unitid, x, y, **kwarg):
@@ -82,6 +99,14 @@ class SpawnCartAction(SpawnAction):
             return False
         
         return True
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "bc {} {}".format(self.x, self.y)
 
 class SpawnWorkerAction(SpawnAction):
     def __init__(self, team, unitid, x, y, **kwarg):
@@ -114,6 +139,14 @@ class SpawnWorkerAction(SpawnAction):
             return False
         
         return True
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "bw {} {}".format(self.x, self.y)
     
 
 class SpawnCityAction(Action):
@@ -149,6 +182,14 @@ class SpawnCityAction(Action):
 
         # Note: Collisions are handled in the turn loop as both players move
         return True
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "bcity {}".format(self.unitid)
 
 class TransferAction(Action):
     def __init__(self, team, srcID, destID, resourceType, amount):
@@ -158,12 +199,28 @@ class TransferAction(Action):
         self.resourceType = resourceType
         self.amount = amount
         super().__init__(action, team)
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "t {} {} {} {}".format(self.srcID, self.destID, self.resourceType, self.amount)
 
 class PillageAction(Action):
     def __init__(self, team, unitid):
         action = Constants.ACTIONS.PILLAGE
         self.unitid = unitid
         super().__init__(action, team)
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "p {}".format(self.unitid)
 
 class ResearchAction(Action):
     def __init__(self, team, x, y):
@@ -171,4 +228,12 @@ class ResearchAction(Action):
         self.x = x
         self.y = y
         super().__init__(action, team)
+    
+    def toMessage(self, game):
+        """
+        Converts this action into a text message to send the
+        kaggle controller via StdOut
+        Returns: String-serialized aciton message to send kaggle controller
+        """
+        return "r {} {}".format(self.x, self.y)
 
