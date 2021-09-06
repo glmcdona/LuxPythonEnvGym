@@ -30,6 +30,9 @@ You can then run tensorboard to monitor the training:
 
 ```tensorboard --logdir lux_tensorboard```
 
+## Example kaggle notebook
+https://www.kaggle.com/glmcdona/lux-ai-deep-reinforcement-learning-ppo-example
+
 ## Kaggle submissions of your agent
 Place your trained model as "model.zip" in the same folder as ./examples/main.py.
 
