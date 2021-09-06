@@ -420,40 +420,17 @@ class AgentPolicy(Agent):
         rewardState = cityTileCount*0.01 + unitCount*0.001
         
         if isGameFinished:
-            # Get some basic stats
-            unitCount = len(game.state["teamStates"][(self.team)%2]["units"])
-            unitCountOpponent = len(game.state["teamStates"][(self.team+1)%2]["units"])
-            cityCount = 0
-            cityCountOpponent = 0
-            cityTileCount = 0
-            cityTileCountOpponent = 0
-            for city in game.cities.values():
-                if city.team == self.team:
-                    cityCount += 1
-                else:
-                    cityCountOpponent += 1
-                
-                for cell in city.citycells:
-                    if city.team == self.team:
-                        cityTileCount += 1
-                    else:
-                        cityTileCountOpponent += 1
-            
-            print("\tUnits: %i, %i" % (unitCount, unitCountOpponent))
-            print("\tCities: %i, %i" % (cityCount, cityCountOpponent))
-            print("\tCityTiles: %i, %i" % (cityTileCount, cityTileCountOpponent))
-
             # Give a bigger reward for end-of-game unit and city count
             if game.getWinningTeam() == self.team:
-                print("Won match")
-                return rewardState*500
+                #print("Won game. %i cities, %i citytiles, %i units." % (cityCount, cityTileCount, unitCount))
+                return rewardState*800
             else:
-                print("Lost match")
-                return rewardState*500
+                #print("Lost game. %i cities, %i citytiles, %i units." % (cityCount, cityTileCount, unitCount))
+                return rewardState*800
         else:
             # Calculate the current reward state
             # If you want, any micro rewards or other rewards that are not win/lose end-of-game rewards
-            return rewardState
+            return rewardState * (cityTileCount + unitCount) # As unit count increases, loss automatically decreases without this compensation because there are more steps per turn, and one reward per turn.
             
 
     def processTurn(self, game, team):
