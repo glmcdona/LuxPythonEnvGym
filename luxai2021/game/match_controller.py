@@ -1,3 +1,4 @@
+import sys
 import random
 import time
 import gym
@@ -36,20 +37,20 @@ class MatchController():
         if self.trainingAgentCount > 1:
             raise ValueError("At most one agent must be trainable.")
         elif self.trainingAgentCount == 1:
-            print("Running in training mode.")
+            print("Running in training mode.", file=sys.stderr)
         elif self.trainingAgentCount == 0:
-            print("Running in inference-only mode.")
+            print("Running in inference-only mode.", file=sys.stderr)
     
     def reset(self):
-        # Reset the game
-        self.game.reset()
-        self.actionBuffer = []
-
         # Randomly re-assign teams of the agents
         r = random.randint(0,1)
         self.agents[0].setTeam(r)
         self.agents[1].setTeam((r+1)%2)
 
+        # Reset the game
+        self.game.reset()
+        self.actionBuffer = []
+        
     def takeAction(self, action):
         """ Adds the specified action to the action buffer """
         if action is not None:
@@ -71,7 +72,14 @@ class MatchController():
                     o.write(text + "\n")
         except:
             print("Critical error in logging")
-        
+    
+    def setOpponentTeam(self, agent, team):
+        """
+        Sets the team of the opposing team
+        """
+        for a in self.agents:
+            if a != agent:
+                a.setTeam(team)
 
     def runToNextObservation(self):
         """ 

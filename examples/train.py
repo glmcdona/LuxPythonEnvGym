@@ -12,11 +12,12 @@ import time
 import json
 import datetime as dt
 import os
+import sys
 
 from stable_baselines3 import PPO # pip install stable-baselines3
 from luxai2021.env.lux_env import LuxEnvironment
-from luxai2021.env.agent import Agent
-from luxai2021.game.constants import LuxMatchConfigs_Default
+from luxai2021.env.agent import Agent, AgentFromStdInOut
+
 from luxai2021.game.actions import *
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
@@ -467,7 +468,7 @@ class AgentPolicy(Agent):
 
         timeTaken = time.time() - startTime
         if timeTaken > 0.5: # Warn if larger than 0.5 seconds.
-            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken))
+            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % (timeTaken), file=sys.stderr)
         
         return actions
 
@@ -481,8 +482,10 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', help='batch_size', type=float)
     parser.add_argument('--step_count', help='Total number of steps to train', type=int)
     args = parser.parse_args()
+
     print(args)
 
+    # Run a training job
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
@@ -512,7 +515,7 @@ if __name__ == "__main__":
     print("Training model...")
     # Save a checkpoint every 1M steps
     checkpointCallback = CheckpointCallback(save_freq=1000000, save_path='./models/',
-                                         name_prefix='rl_model_%s' % str(id))
+                                        name_prefix='rl_model_%s' % str(id))
     model.learn(total_timesteps= args.step_count if args.step_count else 20000000, callback=checkpointCallback) # 20M steps
     print("Done training model.")
     
@@ -530,7 +533,8 @@ if __name__ == "__main__":
             print("Episode done, resetting.")
             obs = env.reset()
     print("Done")
-
+    
+    '''
     # Learn with self-play against the learned model as an opponent now
     print("Training model with self-play against last version of model...")
     player = AgentPolicy(mode="train")
@@ -548,4 +552,6 @@ if __name__ == "__main__":
     model.learn(total_timesteps=2000)
     env.close()
     print("Done")
+    '''
     
+        
