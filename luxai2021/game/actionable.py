@@ -1,27 +1,52 @@
+"""
+Implements /src/Actionable/index.ts
+"""
 
-'''Implements /src/Actionable/index.ts'''
 
 class Actionable:
-    ''' Enum implemenation '''
+    """
+    Enum implementation
+    """
+
     class Types:
         WOOD = 'wood'
         COAL = 'coal'
         URANIUM = 'uranium'
 
-    def __init__(self, configs, cooldown = 0.0) -> None:
+    def __init__(self, configs, cooldown=0.0) -> None:
+        """
+
+        :param configs:
+        :param cooldown:
+        """
         self.configs = configs
-        self.currentActions = []
+        self.current_actions = []
         self.cooldown = cooldown
-    
-    def canAct(self) -> bool:
+
+    def can_act(self) -> bool:
+        """
+
+        :return:
+        """
         return self.cooldown < 1
-    
-    def handleTurn(self, game):
+
+    def handle_turn(self, game):
+        """
+
+        :param game:
+        :return:
+        """
         try:
+            # ToDo self.turn() is not implemented
             self.turn(game)
         finally:
-            self.currentActions = []
+            self.current_actions = []
         # reset actions to empty
 
-    def giveAction(self, action):
-        self.currentActions.append(action)
+    def give_action(self, action):
+        """
+
+        :param action:
+        :return:
+        """
+        self.current_actions.append(action)

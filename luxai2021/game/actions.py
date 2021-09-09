@@ -1,226 +1,288 @@
-
-'''Implements /src/Actions/index.ts'''
-#from .game_objects import Player, Unit, City, CityTile
+"""
+Implements /src/Actions/index.ts
+"""
 from .constants import Constants
 
 UNIT_TYPES = Constants.UNIT_TYPES
+
 
 class Action:
     def __init__(self, action, team):
         self.action = action
         self.team = team
-    
-    def isValid(self, game):
+
+    def is_valid(self, game):
         """
         Validates the command.
-        Returns True if it's valid, False otherwise
+        :param game:
+        :return: True if it's valid, False otherwise
         """
         return True
-    
-    def toMessage(self, game):
+
+    def to_message(self, game):
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: String-serialized action message to send kaggle controller
         """
         raise Exception("NOT IMPLEMENTED")
 
 
-
 class MoveAction(Action):
-    def __init__(self, team, unitid, direction, **kwarg):
+    def __init__(self, team, unit_id, direction, **kwarg):
+        """
+
+        :param team:
+        :param unit_id:
+        :param direction:
+        :param kwarg:
+        """
         action = Constants.ACTIONS.MOVE
-        self.unitid = unitid
+        self.unit_id = unit_id
         self.direction = direction
         super().__init__(action, team)
-    
-    def isValid(self, game):
+
+    def is_valid(self, game) -> bool:
         """
         Validates the command.
-        Returns True if it's valid, False otherwise
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
         """
-        if self.unitid == None or self.team == None or self.direction == None:
+        if self.unit_id is None or self.team is None or self.direction is None:
             return False
 
-        unit = game.getUnit(self.team, self.unitid)
+        unit = game.get_unit(self.team, self.unit_id)
 
         # Validate it can act
-        if not unit.canAct():
+        if not unit.can_act():
             return False
-        
+
         # Check map bounds of destination spot
-        newPos = unit.pos.translate(self.direction, 1)
-        if newPos.y < 0 or newPos.y >= game.map.height:
+        new_pos = unit.pos.translate(self.direction, 1)
+        if new_pos.y < 0 or new_pos.y >= game.map.height:
             return False
-        if newPos.x < 0 or newPos.x >= game.map.height:
+        if new_pos.x < 0 or new_pos.x >= game.map.height:
             return False
-        
+
         # Note: Collisions are handled in the turn loop as both players move
         return True
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: (str) String-serialized action message to send kaggle controller
         """
-        return "m {} {}".format(self.unitid, self.direction)
+        return "m {} {}".format(self.unit_id, self.direction)
+
 
 class SpawnAction(Action):
-    def __init__(self, action, team, unitid, x, y, **kwarg):
-        self.unitid = unitid
+    def __init__(self, action, team, unit_id, x, y, **kwarg):
+        """
+        
+        :param action: 
+        :param team: 
+        :param unit_id: 
+        :param x: 
+        :param y: 
+        :param kwarg: 
+        """
+        self.unit_id = unit_id
         self.x = x
         self.y = y
         super().__init__(action, team)
 
+
 class SpawnCartAction(SpawnAction):
-    def __init__(self, team, unitid, x, y, **kwarg):
+    def __init__(self, team, unit_id, x, y, **kwarg):
+        """
+        
+        :param team: 
+        :param unit_id: 
+        :param x: 
+        :param y: 
+        :param kwarg: 
+        """
         action = Constants.ACTIONS.BUILD_CART
         self.type = UNIT_TYPES.CART
-        super().__init__(action, team, unitid, x, y)
-    
-    def isValid(self, game):
+        super().__init__(action, team, unit_id, x, y)
+
+    def is_valid(self, game):
         """
         Validates the command.
-        Returns True if it's valid, False otherwise
+        ::param game:
+        :return: True if it's valid, False otherwise
         """
-        if self.x == None or self.y == None or self.team == None:
+        if self.x is None or self.y is None or self.team is None:
             return False
 
-        citytile = game.map.getCell(self.x, self.y).citytile
-        if citytile == None:
+        city_tile = game.map.get_cell(self.x, self.y).city_tile
+        if city_tile is None:
             return False
-        
-        if not citytile.canBuildUnit():
+
+        if not city_tile.can_build_unit():
             return False
 
         # TODO handle multiple units building workers in same turn
-        if game.cartUnitCapReached(self.team):
+        if game.cart_unit_cap_reached(self.team):
             return False
-        
+
         return True
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game: 
+        :return: (str) String-serialized action message to send kaggle controller
         """
         return "bc {} {}".format(self.x, self.y)
 
+
 class SpawnWorkerAction(SpawnAction):
-    def __init__(self, team, unitid, x, y, **kwarg):
+    def __init__(self, team, unit_id, x, y, **kwarg):
+        """
+        
+        :param team: 
+        :param unit_id: 
+        :param x: 
+        :param y: 
+        :param kwarg: 
+        """
         action = Constants.ACTIONS.BUILD_WORKER
         self.type = UNIT_TYPES.WORKER
-        super().__init__(action, team, unitid, x, y)
-    
-    def isValid(self, game):
+        super().__init__(action, team, unit_id, x, y)
+
+    def is_valid(self, game):
         """
         Validates the command.
-        Returns True if it's valid, False otherwise
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
         """
-        if self.x == None or self.y == None or self.team == None:
+        if self.x is None or self.y is None or self.team is None:
             return False
-        
+
         if self.y < 0 or self.y >= game.map.height:
             return False
         if self.x < 0 or self.x >= game.map.height:
             return False
 
-        citytile = game.map.getCell(self.x, self.y).citytile
-        if citytile == None:
+        city_tile = game.map.get_cell(self.x, self.y).city_tile
+        if city_tile is None:
             return False
-        
-        if not citytile.canBuildUnit():
+
+        if not city_tile.can_build_unit():
             return False
 
         # TODO handle multiple units building workers in same turn
-        if game.workerUnitCapReached(self.team):
+        if game.worker_unit_cap_reached(self.team):
             return False
-        
+
         return True
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: (str) String-serialized action message to send kaggle controller
         """
         return "bw {} {}".format(self.x, self.y)
-    
+
 
 class SpawnCityAction(Action):
-    def __init__(self, team, unitid, **kwarg):
+    def __init__(self, team, unit_id, **kwarg):
+        """
+
+        :param team:
+        :param unit_id:
+        :param kwarg:
+        """
         action = Constants.ACTIONS.BUILD_CITY
-        self.unitid = unitid
+        self.unit_id = unit_id
         super().__init__(action, team)
-    
-    def isValid(self, game):
+
+    def is_valid(self, game) -> bool:
         """
         Validates the command.
-        Returns True if it's valid, False otherwise
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
         """
-        if self.unitid == None or self.team == None:
+        if self.unit_id is None or self.team is None:
             return False
 
-        unit = game.getUnit(self.team, self.unitid)
+        unit = game.get_unit(self.team, self.unit_id)
 
         # Validate it can act
-        if not unit.canAct():
-            return False
-        
-        if not unit.canBuild(game.map):
-            return False
-        
-        # Validate the cell
-        cell = game.map.getCellByPos(unit.pos)
-        if cell.isCityTile():
+        if not unit.can_act():
             return False
 
-        if cell.hasResource():
+        if not unit.can_build(game.map):
+            return False
+
+        # Validate the cell
+        cell = game.map.get_cell_by_pos(unit.pos)
+        if cell.is_city_tile():
+            return False
+
+        if cell.has_resource():
             return False
 
         # Note: Collisions are handled in the turn loop as both players move
         return True
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: (str) String-serialized action message to send kaggle controller
         """
-        return "bcity {}".format(self.unitid)
+        return "bcity {}".format(self.unit_id)
+
 
 class TransferAction(Action):
-    def __init__(self, team, srcID, destID, resourceType, amount):
+    def __init__(self, team, source_id, destination_id, resource_type, amount):
+        """
+
+        :param team:
+        :param source_id:
+        :param destination_id:
+        :param resource_type:
+        :param amount:
+        """
         action = Constants.ACTIONS.TRANSFER
-        self.srcID = srcID
-        self.destID = destID
-        self.resourceType = resourceType
+        self.source_id = source_id
+        self.destination_id = destination_id
+        self.resource_type = resource_type
         self.amount = amount
         super().__init__(action, team)
-    
-    def toMessage(self, game):
+
+    def to_message(self, game):
         """
         Converts this action into a text message to send the
         kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Returns: String-serialized action message to send kaggle controller
         """
-        return "t {} {} {} {}".format(self.srcID, self.destID, self.resourceType, self.amount)
+        return "t {} {} {} {}".format(self.source_id, self.destination_id, self.resource_type, self.amount)
+
 
 class PillageAction(Action):
-    def __init__(self, team, unitid):
+    def __init__(self, team, unit_id):
+        """
+        
+        :param team: 
+        :param unit_id: 
+        """
         action = Constants.ACTIONS.PILLAGE
-        self.unitid = unitid
+        self.unit_id = unit_id
         super().__init__(action, team)
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: (str) String-serialized action message to send kaggle controller
         """
-        return "p {}".format(self.unitid)
+        return "p {}".format(self.unit_id)
+
 
 class ResearchAction(Action):
     def __init__(self, team, x, y):
@@ -228,12 +290,11 @@ class ResearchAction(Action):
         self.x = x
         self.y = y
         super().__init__(action, team)
-    
-    def toMessage(self, game):
+
+    def to_message(self, game) -> str:
         """
-        Converts this action into a text message to send the
-        kaggle controller via StdOut
-        Returns: String-serialized aciton message to send kaggle controller
+        Converts this action into a text message to send the kaggle controller via StdOut
+        :param game:
+        :return: (str) String-serialized action message to send kaggle controller
         """
         return "r {} {}".format(self.x, self.y)
-

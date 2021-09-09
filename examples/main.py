@@ -1,7 +1,8 @@
-from luxai2021.game.constants import LuxMatchConfigs_Default
-from stable_baselines3 import PPO # pip install stable-baselines3
+from stable_baselines3 import PPO  # pip install stable-baselines3
+
+from luxai2021.env.agent import AgentFromStdInOut
 from luxai2021.env.lux_env import LuxEnvironment
-from luxai2021.env.agent import Agent, AgentFromStdInOut
+from luxai2021.game.constants import LuxMatchConfigs_Default
 from train import AgentPolicy
 
 if __name__ == "__main__":
@@ -16,15 +17,17 @@ if __name__ == "__main__":
     configs = LuxMatchConfigs_Default
 
     # Load the saved model
-    model = PPO.load("model.zip")
-    
+    model_id = 5403
+    total_steps = int(48e6)
+    model = PPO.load(f"models/rl_model_{model_id}_{total_steps}_steps.zip")
+
     # Create a kaggle-remote opponent agent
     opponent = AgentFromStdInOut()
 
     # Create a RL agent in inference mode
     player = AgentPolicy(mode="inference", model=model)
-    
+
     # Run the environment
     env = LuxEnvironment(configs, player, opponent)
-    env.reset() # This will automatically run the game since there is
-                # no controlling learning agent.
+    env.reset()  # This will automatically run the game since there is
+    # no controlling learning agent.

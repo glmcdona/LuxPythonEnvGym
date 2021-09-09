@@ -1,87 +1,104 @@
-''' Implements the base class for a Lux enviornment '''
+"""
+Implements the base class for a Lux environment
+"""
+import gym
+
 from ..game.game import Game
 from ..game.match_controller import GameStepFailedException, MatchController
-from ..game.constants import Constants
-
-import gym
-from gym import spaces
-import numpy as np
-
 
 
 class LuxEnvironment(gym.Env):
-    """Custom Environment that follows gym interface"""
+    """
+    Custom Environment that follows gym interface
+    """
     metadata = {'render.modes': ['human']}
-    
-    def __init__(self, configs, learningAgent, opponentAgent):
+
+    def __init__(self, configs, learning_agent, opponent_agent):
+        """
+        THe initializer
+        :param configs:
+        :param learning_agent:
+        :param opponent_agent:
+        """
         super(LuxEnvironment, self).__init__()
 
         # Create the game
         self.game = Game(configs)
-        self.matchController = MatchController( self.game, agents = [learningAgent, opponentAgent] )
+        self.match_controller = MatchController(self.game, agents=[learning_agent, opponent_agent])
 
-        self.action_space = learningAgent.action_space
-        self.observation_space = learningAgent.observation_space
+        self.action_space = learning_agent.action_space
+        self.observation_space = learning_agent.observation_space
 
-        self.learningAgent = learningAgent
+        self.learning_agent = learning_agent
 
         self.current_step = 0
-        self.matchGenerator = None
+        self.match_generator = None
 
-        self.lastObservationObject = None
-    
+        self.last_observation_object = None
 
     def step(self, action_code):
-        # Take this action, then get the state at the next action
-        
+        """
+        Take this action, then get the state at the next action
+        :param action_code:
+        :return:
+        """
         # Decision for 1 unit or city
-        self.learningAgent.takeAction(action_code,
-            self.game,
-            unit=self.lastObservationObject[0],
-            citytile=self.lastObservationObject[1],
-            team=self.lastObservationObject[2]
-        )
+        self.learning_agent.take_action(action_code,
+                                        self.game,
+                                        unit=self.last_observation_object[0],
+                                        city_tile=self.last_observation_object[1],
+                                        team=self.last_observation_object[2]
+                                        )
 
         self.current_step += 1
 
         # Get the next observation
-        isNewTurn = True
-        isGameOver = False
-        isGameError = False
+        is_new_turn = True
+        is_game_over = False
+        is_game_error = False
         try:
-            (unit, citytile, team, isNewTurn) = next(self.matchGenerator)
+            (unit, city_tile, team, is_new_turn) = next(self.match_generator)
 
-            obs = self.learningAgent.getObservation(self.game, unit, citytile, team, isNewTurn)
-            self.lastObservationObject = (unit, citytile, team, isNewTurn)
-        except StopIteration as err:
+            obs = self.learning_agent.get_observation(self.game, unit, city_tile, team, is_new_turn)
+            self.last_observation_object = (unit, city_tile, team, is_new_turn)
+        except StopIteration:
             # The game episode is done.
-            isGameOver = True
+            is_game_over = True
             obs = None
-        except GameStepFailedException as err:
+        except GameStepFailedException:
             # Game step failed, assign a game lost reward to not incentivise this
-            isGameOver = True
+            is_game_over = True
             obs = None
-            isGameError = True
+            is_game_error = True
 
         # Calculate reward for this step
-        reward = self.learningAgent.getReward(self.game, isGameOver, isNewTurn, isGameError)
-        
-        return obs, reward, isGameOver, {}
+        reward = self.learning_agent.get_reward(self.game, is_game_over, is_new_turn, is_game_error)
+
+        return obs, reward, is_game_over, {}
 
     def reset(self):
+        """
+
+        :return:
+        """
         self.current_step = 0
-        self.lastObservationObject = None
+        self.last_observation_object = None
 
         # Reset game + map
-        self.matchController.reset()
-        self.matchGenerator = self.matchController.runToNextObservation()
-        (unit, citytile, team, isNewTurn) = next(self.matchGenerator)
+        self.match_controller.reset()
+        self.match_generator = self.match_controller.run_to_next_observation()
+        (unit, city_tile, team, is_new_turn) = next(self.match_generator)
 
-        obs = self.learningAgent.getObservation(self.game, unit, citytile, team, isNewTurn)
-        self.lastObservationObject = (unit, citytile, team, isNewTurn)
+        obs = self.learning_agent.get_observation(self.game, unit, city_tile, team, is_new_turn)
+        self.last_observation_object = (unit, city_tile, team, is_new_turn)
 
         return obs
 
-    def render(self):
+    def render(self, **kwargs):
+        """
+
+        :param kwargs:
+        :return:
+        """
         print(self.current_step)
-        print(self.game.map.getMapString())
+        print(self.game.map.get_map_string())

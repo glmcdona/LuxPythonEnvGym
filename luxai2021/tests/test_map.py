@@ -1,13 +1,9 @@
-
-
-from luxai2021.game.actions import MoveAction
+import time
 from unittest import TestCase
 
-import time
-import random
-import math
+from luxai2021.game.actions import MoveAction
+from ..game.constants import Constants
 from ..game.game import Game
-from ..game.constants import Constants, LuxMatchConfigs_Default
 from ..game.game_constants import GAME_CONSTANTS
 
 
@@ -30,12 +26,12 @@ class TestMap(TestCase):
         game = Game(LuxMatchConfigs)
 
         # Print the game map
-        print(game.map.getMapString())
-        print("Map shape: %i,%i" % ( len(game.map.map), len(game.map.map[0])))
+        print(game.map.get_map_string())
+        print("Map shape: %i,%i" % (len(game.map.map), len(game.map.map[0])))
         assert len(game.map.map) >= 5
         assert len(game.map.map[0]) >= 5
         assert len(game.cities) == 2
-        
+
         # Print game stats
         print(game.stats)
         assert game.stats["teamStats"][0]["workersBuilt"] == 1
@@ -66,20 +62,20 @@ class TestMap(TestCase):
 
         # Print the game map
         print("Map for seed 123456789:")
-        print(game.map.getMapString())
+        print(game.map.get_map_string())
 
         # Test units
-        units = list(game.getTeamsUnits(Constants.TEAM.A).values())
+        units = list(game.get_teams_units(Constants.TEAM.A).values())
         assert len(units) == 1
 
         # Try moving a unit, not a great test since maybe can't move North and
         # opponent may be beside this unit.
         test = {}
         unit = units[0]
-        oldCellPosition = game.map.getCellByPos( unit.pos )
-        newCellPosition = game.map.getCellByPos(
-                unit.pos.translate(Constants.DIRECTIONS.NORTH, 1)
-            )
+        oldCellPosition = game.map.get_cell_by_pos(unit.pos)
+        newCellPosition = game.map.get_cell_by_pos(
+            unit.pos.translate(Constants.DIRECTIONS.NORTH, 1)
+        )
         action = MoveAction(
             Constants.TEAM.A,
             unit.id,
@@ -92,9 +88,9 @@ class TestMap(TestCase):
         print(unit.cargo)
         assert unit.cargo[Constants.RESOURCE_TYPES.WOOD] == 0
 
-        gameOver = game.runTurnWithActions([action])
+        gameOver = game.run_turn_with_actions([action])
 
-        print(game.map.getMapString())
+        print(game.map.get_map_string())
         assert gameOver == False
         assert len(oldCellPosition.units) == 0
         assert len(newCellPosition.units) == 1
@@ -103,11 +99,10 @@ class TestMap(TestCase):
 
         # Let the game run it's course
         while not gameOver:
-            gameOver = game.runTurnWithActions([])
-        print(game.map.getMapString())
+            gameOver = game.run_turn_with_actions([])
+        print(game.map.get_map_string())
 
         return True
-
 
     def test_gen_game_seed(self):
         print("Testing game simulation speed")
@@ -119,15 +114,14 @@ class TestMap(TestCase):
 
         # Play 10 games to measure performance
         start_time = time.time()
-        for i in range(10): 
+        for i in range(10):
             gameOver = False
             while not gameOver:
-                gameOver = game.runTurnWithActions([])
+                gameOver = game.run_turn_with_actions([])
             game.reset()
         total_time = time.time() - start_time
 
         print("Simple empty game: %.3f seconds per full game." % (total_time / 10.0))
-        assert (total_time / 10.0) <= 2.0 # Normally takes ~0.312 seconds per game on my device
-        
+        assert (total_time / 10.0) <= 2.0  # Normally takes ~0.312 seconds per game on my device
 
         return True

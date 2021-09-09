@@ -1,13 +1,23 @@
+"""
+Implements /src/Resource/index.ts
+"""
 
-'''Implements /src/Resource/index.ts'''
 
 class Resource:
-    ''' Enum implemenation '''
+    """
+    Enum implementation
+    """
+
     class Types:
         WOOD = 'wood'
         COAL = 'coal'
         URANIUM = 'uranium'
 
-    def __init__(self, type, amount) -> None:
-        self.type = type
+    def __init__(self, resource_type, amount) -> None:
+        """
+
+        :param resource_type:
+        :param amount:
+        """
+        self.type = resource_type
         self.amount = amount

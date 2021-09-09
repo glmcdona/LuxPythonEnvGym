@@ -1,8 +1,9 @@
-'''Implements /src/GameMap/position.ts'''
+"""Implements /src/GameMap/position.ts"""
 
 from .constants import Constants
 
 DIRECTIONS = Constants.DIRECTIONS
+
 
 class Position:
     def __init__(self, x, y):
@@ -12,18 +13,17 @@ class Position:
     def __sub__(self, pos) -> int:
         return abs(pos.x - self.x) + abs(pos.y - self.y)
 
-    def distanceTo(self, pos):
+    def distance_to(self, pos):
         """
         Returns Manhattan (L1/grid) distance to pos
         """
         return abs(pos.x - self.x) + abs(pos.y - self.y)
-        return self - pos
 
-    def isAdjacent(self, pos):
+    def is_adjacent(self, pos):
         return (self - pos) <= 1
 
     def __eq__(self, pos) -> bool:
-        if pos == None:
+        if pos is None:
             return False
         return self.x == pos.x and self.y == pos.y
 
@@ -31,7 +31,7 @@ class Position:
         return self == pos
 
     def __hash__(self):
-        return 10000 * self.x + self.y # works as long as maps are at most 10000 by 10000
+        return 10000 * self.x + self.y  # works as long as maps are at most 10000 by 10000
 
     def translate(self, direction, units) -> 'Position':
         if direction == DIRECTIONS.NORTH:
@@ -45,7 +45,7 @@ class Position:
         elif direction == DIRECTIONS.CENTER:
             return Position(self.x, self.y)
 
-    def directionTo(self, target_pos: 'Position') -> DIRECTIONS:
+    def direction_to(self, target_pos: 'Position') -> DIRECTIONS:
         """
         Return closest position to target_pos from this position
         """
@@ -55,11 +55,11 @@ class Position:
             DIRECTIONS.SOUTH,
             DIRECTIONS.WEST,
         ]
-        closest_dist = self.distanceTo(target_pos)
+        closest_dist = self.distance_to(target_pos)
         closest_dir = DIRECTIONS.CENTER
         for direction in check_dirs:
             newpos = self.translate(direction, 1)
-            dist = target_pos.distanceTo(newpos)
+            dist = target_pos.distance_to(newpos)
             if dist < closest_dist:
                 closest_dir = direction
                 closest_dist = dist
