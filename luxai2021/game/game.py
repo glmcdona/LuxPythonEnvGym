@@ -104,7 +104,6 @@ class Game:
                 if update == "D_DONE":
                     break
                 strings = update.split(" ")
-                print(strings, file=sys.stderr)
 
                 input_identifier = strings[0]
                 if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:

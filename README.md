@@ -34,10 +34,12 @@ You can then run tensorboard to monitor the training:
 https://www.kaggle.com/glmcdona/lux-ai-deep-reinforcement-learning-ppo-example
 
 ## Kaggle submissions of your agent
-Place your trained model as "model.zip" in the same folder as ./examples/main.py.
+See documentation in the `kaggle_submissions` folder to submit your trained model and agent.
 
-Assuming you have the lux-ai-2021 tools installed, you can then run a kaggle match and generate replays locally, eg:
+## Locally playing your agent with a replay
+Place your trained model file as `model.zip` and your agent file `agent_policy.py` in the `.\kaggle_submissions\` folder. Then run a command like the following from that directory:
 
-```lux-ai-2021 --seed=100 main.py main.py --maxtime 10000```
+`lux-ai-2021 --seed=100 main_lux-ai-2021.py main_lux-ai-2021.py --maxtime 10000`
 
-TBD: Working on creating the format of the submission.zip that installs dependencies correctly.
+This will battle your agent against itself and produce a replay match. You can view the replay here:
+https://2021vis.lux-ai.org/

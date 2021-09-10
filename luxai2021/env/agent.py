@@ -129,6 +129,9 @@ class AgentFromStdInOut(Agent):
         # Print the messages to the kaggle controller
         if len(messages) > 0:
             print(",".join(messages))
+        else:
+            # Print a new line. This is needed for the main_kaggle_submission.py wrapper to work
+            print("")
 
         print("D_FINISH")
 
