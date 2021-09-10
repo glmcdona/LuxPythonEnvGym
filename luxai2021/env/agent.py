@@ -1,69 +1,85 @@
 from ..game.constants import Constants
 
-''' Implements the base class for a training Agent '''
-class Agent():
+"""
+Implements the base class for a training Agent
+"""
+
+
+class Agent:
     def __init__(self) -> None:
         """
         Implements an agent opponent
         """
         self.team = None
-    
-    def processTurn(self, game, team):
+        self.match_controller = None
+
+    def process_turn(self, game, team):
         """
         Decides on a set of actions for the current turn.
-        Returns: Array of actions to perform for this turn.
+        :param game:
+        :param team:
+        :return: Array of actions to perform for this turn.
         """
         return []
 
-    def preTurn(self, game):
+    def pre_turn(self, game):
         """
         Called before a turn starts. Allows for modifying the game environment.
         Generally only used in kaggle submission opponents.
+        :param game:
         """
         return
-    
-    def postTurn(self, game, actions):
+
+    def post_turn(self, game, actions):
         """
         Called after a turn. Generally only used in kaggle submission opponents.
-            Returns True if it handled the turn (don't run our game engine)
+        :param game:
+        :param actions:
+        :return: (bool) True if it handled the turn (don't run our game engine)
         """
         return False
 
-    def getAgentType(self):
+    def get_agent_type(self):
         """
         Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
         """
         return Constants.AGENT_TYPE.AGENT
-    
-    def setTeam(self, team):
+
+    def set_team(self, team):
         """
         Sets the team id that this agent is controlling
+        :param team:
         """
         self.team = team
-    
-    def setController(self, matchController):
-        self.matchController = matchController
 
+    def set_controller(self, match_controller):
+        """
+
+        """
+        self.match_controller = match_controller
 
 
 """
 Wrapper for an external agent where this agent's commands are coming in through standard input.
 """
+
+
 class AgentFromStdInOut(Agent):
     def __init__(self) -> None:
         """
         Implements an agent opponent
         """
-        self.team = None
-        self.initializedPlayer = False
-        self.initializedMap = False
-    
-    def preTurn(self, game):
+        super().__init__()
+        self.initialized_player = False
+        self.initialized_map = False
+
+    def pre_turn(self, game):
         """
         Called before a turn starts. Allows for modifying the game environment.
         Generally only used in kaggle submission opponents.
+        :param game:
         """
-        
+
         # Read StdIn to update game state
         # Loosly implements:
         #    /Lux-AI-Challenge/Lux-Design-2021/blob/master/kits/python/simple/main.py
@@ -72,47 +88,50 @@ class AgentFromStdInOut(Agent):
         while True:
             message = input()
 
-            if self.initializedPlayer == False:
+            if not self.initialized_player:
                 team = int(message)
-                self.setTeam((team+1)%2)
-                self.matchController.setOpponentTeam(self, team)
-                
-                self.initializedPlayer = True
-            
-            elif self.initializedMap == False:
+                self.set_team((team + 1) % 2)
+                self.match_controller.set_opponent_team(self, team)
+
+                self.initialized_player = True
+
+            elif not self.initialized_map:
                 # Parse the map size update message, it's always the second message of the game
-                mapInfo = message.split(" ")
-                game.configs["width"] = int(mapInfo[0])
-                game.configs["height"] = int(mapInfo[1])
+                map_info = message.split(" ")
+                game.configs["width"] = int(map_info[0])
+                game.configs["height"] = int(map_info[1])
 
                 # Use an empty map, because the updates will fill the map out
-                game.configs["mapType"] = Constants.MAP_TYPES.EMPTY 
+                game.configs["mapType"] = Constants.MAP_TYPES.EMPTY
 
-                self.initializedMap = True
+                self.initialized_map = True
             else:
                 updates.append(message)
-            
-            if message == "D_DONE": # End of turn data marker
+
+            if message == "D_DONE":  # End of turn data marker
                 break
 
         # Reset the game to the specified state
-        game.reset(updates = updates)
+        game.reset(updates=updates)
 
-    def postTurn(self, game, actions):
+    def post_turn(self, game, actions) -> bool:
         """
         Called after a turn. Generally only used in kaggle submission opponents.
-            Returns True if it handled the turn (don't run our game engine)
+        :param game:
+        :param actions:
+        :return: (bool) True if it handled the turn (don't run our game engine)
         """
         # TODO: Send the list of actions to stdout in the correct format.
         messages = []
         for action in actions:
-            messages.append(action.toMessage(game))
-        
+            messages.append(action.to_message(game))
+
         # Print the messages to the kaggle controller
         if len(messages) > 0:
             print(",".join(messages))
+
         print("D_FINISH")
-        
+
         # True here instructs the controller to not simulate the actions. Instead the kaggle controller will
         # run the turn and send back pre-turn map state.
         return True

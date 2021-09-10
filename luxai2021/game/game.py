@@ -1,37 +1,44 @@
-import sys
-from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, ResearchAction, TransferAction
-import gym
-from .constants import Constants, LuxMatchConfigs_Default
-from .game_map import GameMap
-import traceback
-
-from .unit import Unit, Worker, Cart
-from .city import City
 import math
 import random
+import sys
+import traceback
+
+from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, \
+    ResearchAction, TransferAction
+from .city import City
+from .constants import Constants, LuxMatchConfigs_Default
+from .game_map import GameMap
+from .unit import Worker, Cart
 
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 
+
 class Game:
-    def __init__(self, configs = None, agents = []):
+    def __init__(self, configs=None, agents=[]):
+        """
+
+        :param configs:
+        :param agents:
+        """
         # Initializations from src/Game/index.ts -> Game()
         self.configs = LuxMatchConfigs_Default
-        self.configs.update(configs) # Override default config from specified config
+        self.configs.update(configs)  # Override default config from specified config
         self.agents = []
         self.reset()
-        self.logFile = None
+        self.log_file = None
 
-    def reset(self, updates = None):
-        '''
-            Resets the game for another game.
-            Updates are optionally a list of command messages from the kaggle controller
-            that defines the state of the game to reset the game to. This gets sent from
-            the kaggle server to our engine each turn.
-        '''
-        self.globalCityIDCount = 0
-        self.globalUnitIDCount = 0
-        self.cities = {} # string -> City
+    def reset(self, updates=None):
+        """
+        Resets the game for another game.
+        Updates are optionally a list of command messages from the kaggle controller
+        that defines the state of the game to reset the game to. This gets sent from
+        the kaggle server to our engine each turn.
+        :param updates:
+        """
+        self.global_city_id_count = 0
+        self.global_unit_id_count = 0
+        self.cities = {}  # string -> City
         self.stats = {
             "teamStats": {
                 Constants.TEAM.A: {
@@ -63,221 +70,224 @@ class Game:
             },
         }
         self.state = {
-            "turn" : 0,
-            "teamStates" : {
-                Constants.TEAM.A : {
+            "turn": 0,
+            "teamStates": {
+                Constants.TEAM.A: {
                     "researchPoints": 0,
-                    "units" : {},
-                    "researched" : {
-                        "wood" : True,
-                        "coal" : False,
-                        "uranium" : False,
+                    "units": {},
+                    "researched": {
+                        "wood": True,
+                        "coal": False,
+                        "uranium": False,
                     }
                 },
-                Constants.TEAM.B : {
+                Constants.TEAM.B: {
                     "researchPoints": 0,
-                    "units" : {},
-                    "researched" : {
-                        "wood" : True,
-                        "coal" : False,
-                        "uranium" : False,
+                    "units": {},
+                    "researched": {
+                        "wood": True,
+                        "coal": False,
+                        "uranium": False,
                     }
                 },
             }
         }
-        
+
         # Generate the map
         self.map = GameMap(self.configs)
-        self.map.generateMap(self)
+        self.map.generate_map(self)
 
-        if updates != None:
+        if updates is not None:
             # Loop through updating the game from the list of updates
             # Implements /kits/python/simple/lux/game.py -> _update()
             for update in updates:
                 if update == "D_DONE":
                     break
-                strs = update.split(" ")
-                print(strs, file=sys.stderr)
+                strings = update.split(" ")
+                print(strings, file=sys.stderr)
 
-                input_identifier = strs[0]
+                input_identifier = strings[0]
                 if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
-                    team = int(strs[1])
-                    self.state["teamStates"][team]["researchPoints"] = int(strs[2])
+                    team = int(strings[1])
+                    self.state["teamStates"][team]["researchPoints"] = int(strings[2])
 
-                    if int(strs[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
+                    if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
                         self.state["teamStates"][team]["researched"]["coal"] = True
-                    
-                    if int(strs[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
+
+                    if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
                         self.state["teamStates"][team]["researched"]["uranium"] = True
 
                 elif input_identifier == INPUT_CONSTANTS.RESOURCES:
-                    r_type = strs[1]
-                    x = int(strs[2])
-                    y = int(strs[3])
-                    amt = int(float(strs[4]))
-                    self.map.addResource(x, y, r_type, amt)
-                
+                    r_type = strings[1]
+                    x = int(strings[2])
+                    y = int(strings[3])
+                    amt = int(float(strings[4]))
+                    self.map.add_resource(x, y, r_type, amt)
+
                 elif input_identifier == INPUT_CONSTANTS.UNITS:
-                    unittype = int(strs[1])
-                    team = int(strs[2])
-                    unitid = strs[3]
-                    x = int(strs[4])
-                    y = int(strs[5])
-                    cooldown = float(strs[6])
-                    wood = int(strs[7])
-                    coal = int(strs[8])
-                    uranium = int(strs[9])
-                    if unittype == Constants.UNIT_TYPES.WORKER:
-                        self.spawnWorker(team, x, y, unitid, cooldown=cooldown, cargo={"wood": wood, "uranium": uranium, "coal":coal})
-                    elif unittype == Constants.UNIT_TYPES.CART:
-                        self.spawnCart(team, x, y, unitid, cooldown=cooldown, cargo={"wood": wood, "uranium": uranium, "coal":coal})
-                
+                    unit_type = int(strings[1])
+                    team = int(strings[2])
+                    unit_id = strings[3]
+                    x = int(strings[4])
+                    y = int(strings[5])
+                    cooldown = float(strings[6])
+                    wood = int(strings[7])
+                    coal = int(strings[8])
+                    uranium = int(strings[9])
+                    if unit_type == Constants.UNIT_TYPES.WORKER:
+                        self.spawn_worker(team, x, y, unit_id, cooldown=cooldown,
+                                          cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                    elif unit_type == Constants.UNIT_TYPES.CART:
+                        self.spawn_cart(team, x, y, unit_id, cooldown=cooldown,
+                                        cargo={"wood": wood, "uranium": uranium, "coal": coal})
+
                 elif input_identifier == INPUT_CONSTANTS.CITY:
-                    team = int(strs[1])
-                    cityid = strs[2]
-                    fuel = float(strs[3])
-                    lightupkeep = float(strs[4]) # Unused
-                    self.cities[cityid] = City(team, self.configs, None, cityid, fuel)
-                
+                    team = int(strings[1])
+                    city_id = strings[2]
+                    fuel = float(strings[3])
+                    light_upkeep = float(strings[4])  # Unused
+                    self.cities[city_id] = City(team, self.configs, None, city_id, fuel)
+
                 elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
-                    team = int(strs[1])
-                    cityid = strs[2]
-                    x = int(strs[3])
-                    y = int(strs[4])
-                    cooldown = float(strs[5])
-                    city = self.cities[cityid]
-                    cell = self.map.getCell(x, y)
-                    cell.setCityTile(team, cityid, cooldown)
-                    city.addCityTile(cell)
+                    team = int(strings[1])
+                    city_id = strings[2]
+                    x = int(strings[3])
+                    y = int(strings[4])
+                    cooldown = float(strings[5])
+                    city = self.cities[city_id]
+                    cell = self.map.get_cell(x, y)
+                    cell.set_city_tile(team, city_id, cooldown)
+                    city.add_city_tile(cell)
 
                     self.stats["teamStats"][team]["cityTilesBuilt"] += 1
-                
-                elif input_identifier == INPUT_CONSTANTS.ROADS:
-                    x = int(strs[1])
-                    y = int(strs[2])
-                    road = float(strs[3])
-                    self.map.getCell(x, y).road = road
 
-    def _genInitialAccumulatedActionStats(self):
+                elif input_identifier == INPUT_CONSTANTS.ROADS:
+                    x = int(strings[1])
+                    y = int(strings[2])
+                    road = float(strings[3])
+                    self.map.get_cell(x, y).road = road
+
+    def _gen_initial_accumulated_action_stats(self):
         """
         Initial stats
         Implements src/Game/index.ts -> Game._genInitialAccumulatedActionStats()
+        :return:
         """
         return {
-                Constants.TEAM.A: {
-                    "workersBuilt": 0,
-                    "cartsBuilt": 0,
-                    "actionsPlaced": set(),
-                },
-                Constants.TEAM.B: {
-                    "workersBuilt": 0,
-                    "cartsBuilt": 0,
-                    "actionsPlaced": set(),
-                },
-            }
-    
-    def actionFromCommand(self, cmd):
+            Constants.TEAM.A: {
+                "workersBuilt": 0,
+                "cartsBuilt": 0,
+                "actionsPlaced": set(),
+            },
+            Constants.TEAM.B: {
+                "workersBuilt": 0,
+                "cartsBuilt": 0,
+                "actionsPlaced": set(),
+            },
+        }
+
+    def action_from_command(self, cmd):
         """
         Converts a match text command to an action. Validation is handled elsewhere.
         This is used in Kaggle submissions to decode actions taken and update the game.
         Somewhat implements src/Game/index.ts -> Game.validateCommand()
+        :param cmd:
         """
-        invalidMsg = f"Agent {{cmd.agentID}} sent invalid command"
-        malformedMsg = f"Agent {{cmd.agentID}} sent malformed command: {{cmd.command}}";
+        invalid_msg = f"Agent {{cmd.agentID}} sent invalid command"
+        malformed_msg = f"Agent {{cmd.agentID}} sent malformed command: {{cmd.command}}"
 
-        def check(condition, errormsg, trace = True):
-            if (condition):
+        def check(condition, error_msg, trace=True):
+            if condition:
                 if trace:
-                    raise Exception(errormsg + f"; turn {{self.state['turn']}}; cmd: {{cmd.command}}")
+                    raise Exception(error_msg + f"; turn {{self.state['turn']}}; cmd: {{cmd.command}}")
                 else:
-                    raise Exception(errormsg)
-        
+                    raise Exception(error_msg)
+
         # Tokenize command
         args = cmd.command.split(' ')
-        check(len(args) > 0, invalidMsg)
+        check(len(args) > 0, invalid_msg)
         action = args[0]
         args = args[1:]
 
         # Load the team details
         team = cmd.agentID
-        teamState = self.state["teamStates"][team]
-        
+        team_state = self.state["teamStates"][team]
+
         # Construct the action
         result = None
         if action == Constants.ACTIONS.PILLAGE:
-            check(len(args) != 1, malformedMsg)
-            uid = args[0]
-            
-            unit = self.getUnit(team, uid)
-            check(unit == None, invalidMsg)
-            result = PillageAction(team, uid)
-        
-        elif action == Constants.ACTIONS.BUILD_CITY:
-            check(len(args) != 1, malformedMsg)
+            check(len(args) != 1, malformed_msg)
             uid = args[0]
 
-            unit = self.getUnit(team, uid)
-            check(unit == None, invalidMsg)
-            
+            unit = self.get_unit(team, uid)
+            check(unit is None, invalid_msg)
+            result = PillageAction(team, uid)
+
+        elif action == Constants.ACTIONS.BUILD_CITY:
+            check(len(args) != 1, malformed_msg)
+            uid = args[0]
+
+            unit = self.get_unit(team, uid)
+            check(unit is None, invalid_msg)
+
             result = SpawnCityAction(team, uid)
-        
+
         elif action == Constants.ACTIONS.BUILD_CART:
-            check(len(args) != 2, malformedMsg)
+            check(len(args) != 2, malformed_msg)
 
             x = int(args[0])
             y = int(args[1])
 
             result = SpawnCartAction(team, None, x, y)
-        
+
         elif action == Constants.ACTIONS.BUILD_WORKER:
-            check(len(args) != 2, malformedMsg)
+            check(len(args) != 2, malformed_msg)
 
             x = int(args[0])
             y = int(args[1])
 
             result = SpawnWorkerAction(team, None, x, y)
-        
+
         elif action == Constants.ACTIONS.MOVE:
-            check(len(args) != 2, malformedMsg)
+            check(len(args) != 2, malformed_msg)
 
             uid = args[0]
             direction = args[1]
 
             result = MoveAction(team, uid, direction)
-        
+
         elif action == Constants.ACTIONS.RESEARCH:
-            check(len(args) != 2, malformedMsg)
+            check(len(args) != 2, malformed_msg)
 
             x = int(args[0])
             y = int(args[1])
 
             result = ResearchAction(team, x, y)
-        
-        elif action == Constants.ACTIONS.TRANSFER:
-            check(len(args) != 4, malformedMsg)
 
-            srcID = args[0]
-            destID = args[1]
-            resourceType = args[2]
+        elif action == Constants.ACTIONS.TRANSFER:
+            check(len(args) != 4, malformed_msg)
+
+            source_id = args[0]
+            destination_id = args[1]
+            resource_type = args[2]
             amount = int(args[3])
 
             result = TransferAction(
                 team,
-                srcID,
-                destID,
-                resourceType,
+                source_id,
+                destination_id,
+                resource_type,
                 amount
             )
-        
+
         # Validate the action
-        # TODO: Add valitation of accumulated actions?
-        if result != None and result.isValid(self):
+        # TODO: Add validation of accumulated actions?
+        if result is not None and result.is_valid(self):
             return result
 
         return None
 
-
-    def runTurnWithActions(self, actions):
+    def run_turn_with_actions(self, actions):
         """
         Runs a single game turn with the specified actions
         Returns:
@@ -286,73 +296,73 @@ class Game:
         """
         if "log" in self.configs and self.configs["log"]:
             self.log('Processing turn ' + self.game.state["turn"])
-        
-        # Loop over commands and validate and map into internal action representations
-        actionsMap = {}
 
-        accumulatedActionStats = self._genInitialAccumulatedActionStats()
+        # Loop over commands and validate and map into internal action representations
+        actions_map = {}
+
+        accumulated_action_stats = self._gen_initial_accumulated_action_stats()
         for i, action in enumerate(actions):
             # get the command and the agent that issued it and handle appropriately
             try:
-                action = self.validateCommand(
+                action = self.validate_command(
                     actions[i],
-                    accumulatedActionStats
+                    accumulated_action_stats
                 )
-                if (action is not None):
-                    if action.action in actionsMap:
-                        actionsMap[action.action].append(action)
+                if action is not None:
+                    if action.action in actions_map:
+                        actions_map[action.action].append(action)
                     else:
-                        actionsMap[action.action] = [action]
+                        actions_map[action.action] = [action]
             except Exception as e:
                 self.log("Error processing action")
                 self.log(repr(e))
                 self.log(''.join(traceback.format_exception(None, e, e.__traceback__)))
 
         # give units and city tiles their validated actions to use
-        if Constants.ACTIONS.BUILD_CITY in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.BUILD_CITY]:
-                self.getUnit(action.team, action.unitid).giveAction(action)
-        
-        if Constants.ACTIONS.BUILD_WORKER in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.BUILD_WORKER]:
-                citytile = self.map.getCell(action.x, action.y).citytile
-                citytile.giveAction(action)
-        
-        if Constants.ACTIONS.BUILD_CART in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.BUILD_CART]:
-                citytile = self.map.getCell(action.x, action.y).citytile
-                citytile.giveAction(action)
-        
-        if Constants.ACTIONS.PILLAGE in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.PILLAGE]:
-                self.getUnit(action.team, action.unitid).giveAction(action)
-        
-        if Constants.ACTIONS.RESEARCH in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.RESEARCH]:
-                citytile = self.map.getCell(action.x, action.y).citytile
-                citytile.giveAction(action)
-        
-        if Constants.ACTIONS.TRANSFER in actionsMap:
-            for action in actionsMap[Constants.ACTIONS.TRANSFER]:
-                self.getUnit(action.team, action.srcID).giveAction(action)
+        if Constants.ACTIONS.BUILD_CITY in actions_map:
+            for action in actions_map[Constants.ACTIONS.BUILD_CITY]:
+                self.get_unit(action.team, action.unit_id).give_action(action)
 
-        if Constants.ACTIONS.MOVE in actionsMap:
-            prunedMoveActions = self.handleMovementActions(
-                actionsMap[Constants.ACTIONS.MOVE]
+        if Constants.ACTIONS.BUILD_WORKER in actions_map:
+            for action in actions_map[Constants.ACTIONS.BUILD_WORKER]:
+                city_tile = self.map.get_cell(action.x, action.y).city_tile
+                city_tile.give_action(action)
+
+        if Constants.ACTIONS.BUILD_CART in actions_map:
+            for action in actions_map[Constants.ACTIONS.BUILD_CART]:
+                city_tile = self.map.get_cell(action.x, action.y).city_tile
+                city_tile.give_action(action)
+
+        if Constants.ACTIONS.PILLAGE in actions_map:
+            for action in actions_map[Constants.ACTIONS.PILLAGE]:
+                self.get_unit(action.team, action.unit_id).give_action(action)
+
+        if Constants.ACTIONS.RESEARCH in actions_map:
+            for action in actions_map[Constants.ACTIONS.RESEARCH]:
+                city_tile = self.map.get_cell(action.x, action.y).city_tile
+                city_tile.give_action(action)
+
+        if Constants.ACTIONS.TRANSFER in actions_map:
+            for action in actions_map[Constants.ACTIONS.TRANSFER]:
+                self.get_unit(action.team, action.source_id).give_action(action)
+
+        if Constants.ACTIONS.MOVE in actions_map:
+            pruned_move_actions = self.handle_movement_actions(
+                actions_map[Constants.ACTIONS.MOVE]
             )
         else:
-            prunedMoveActions = []
+            pruned_move_actions = []
 
-        for action in prunedMoveActions:
+        for action in pruned_move_actions:
             # if direction is center, ignore it
-            if (action.direction != Constants.DIRECTIONS.CENTER):
-                self.getUnit(action.team, action.unitid).giveAction(action)
+            if action.direction != Constants.DIRECTIONS.CENTER:
+                self.get_unit(action.team, action.unit_id).give_action(action)
 
         # now we go through every actionable entity and execute actions
         for city in self.cities.values():
-            for citycell in city.citycells:
+            for city_cell in city.city_cells:
                 try:
-                    citycell.citytile.handleTurn(self)
+                    city_cell.city_tile.handle_turn(self)
                 except Exception as e:
                     self.log("Critical error handling city turn.")
                     self.log(repr(e))
@@ -362,61 +372,60 @@ class Game:
         for team in teams:
             for unit in self.state["teamStates"][team]["units"].values():
                 try:
-                    unit.handleTurn(self)
+                    unit.handle_turn(self)
                 except Exception as e:
                     self.log("Critical error handling unit turn.")
                     self.log(repr(e))
                     self.log(''.join(traceback.format_exception(None, e, e.__traceback__)))
 
         # distribute all resources in order of decreasing fuel efficiency
-        self.distributeAllResources()
+        self.distribute_all_resources()
 
         # now we make all units with cargo drop all resources on the city they are standing on
         for team in teams:
             for unit in self.state["teamStates"][team]["units"].values():
-                self.handleResourceDeposit(unit)
+                self.handle_resource_deposit(unit)
 
-        if (self.isNight()):
-            self.handleNight()
+        if self.is_night():
+            self.handle_night()
 
         # remove resources that are depleted from map
-        newResourcesMap = []
+        new_resources_map = []
         self.map.resources_by_type = {}
         for i in range(len(self.map.resources)):
             cell = self.map.resources[i]
-            if (cell.resource.amount > 0):
-                newResourcesMap.append(cell)
+            if cell.resource.amount > 0:
+                new_resources_map.append(cell)
                 if cell.resource.type not in self.map.resources_by_type:
                     self.map.resources_by_type[cell.resource.type] = [cell]
                 else:
                     self.map.resources_by_type[cell.resource.type].append(cell)
 
-        self.map.resources = newResourcesMap
+        self.map.resources = new_resources_map
 
         # regenerate forests
-        self.regenerateTrees()
+        self.regenerate_trees()
 
-        matchOver = self.matchOver()
+        match_over = self.match_over()
 
         self.state["turn"] += 1
 
         # store state
         # TODO: IMPLEMENT THIS
-        #if (self.replay.statefulReplay):
+        # if (self.replay.statefulReplay):
         #    self.replay.writeState(self)
 
-        self.runCooldowns()
+        self.run_cooldowns()
 
-        if (matchOver):
-            #if (self.replay):
+        if match_over:
+            # if (self.replay):
             #    self.replay.writeOut(self.getResults(match))
             return True
 
-        #self.log('Beginning turn %s' % self.state["turn"])
+        # self.log('Beginning turn %s' % self.state["turn"])
         return False
 
-
-    def handleNight(self):
+    def handle_night(self):
         """
         Implements /src/logic.ts -> handleNight()
         /**
@@ -426,30 +435,30 @@ class Game:
         for city in list(self.cities.values()):
             # if city does not have enough fuel, destroy it
             # TODO, probably add this event to replay
-            if (city.fuel < city.getLightUpkeep()):
-                self.destroyCity(city.team, city.id)
+            if city.fuel < city.get_light_upkeep():
+                self.destroy_city(city.team, city.id)
             else:
-                city.fuel -= city.getLightUpkeep()
-        
+                city.fuel -= city.get_light_upkeep()
+
         for team in [Constants.TEAM.A, Constants.TEAM.B]:
             for unit in list(self.state["teamStates"][team]["units"].values()):
                 # TODO: add condition for different light upkeep for units stacked on a city.
-                if (not self.map.getCellByPos(unit.pos).isCityTile()):
-                    if (not unit.spendFuelToSurvive()):
+                if not self.map.get_cell_by_pos(unit.pos).is_city_tile():
+                    if not unit.spend_fuel_to_survive():
                         # delete unit
-                        self.destroyUnit(unit.team, unit.id)
+                        self.destroy_unit(unit.team, unit.id)
 
-    def runCooldowns(self):
+    def run_cooldowns(self):
         """
         Implements /src/Game/index.ts -> runCooldowns()
         """
         for team in [Constants.TEAM.A, Constants.TEAM.B]:
-            units = self.getTeamsUnits(team).values()
+            units = self.get_teams_units(team).values()
             for unit in units:
-                unit.cooldown -= self.map.getCellByPos(unit.pos).getRoad()
+                unit.cooldown -= self.map.get_cell_by_pos(unit.pos).get_road()
                 unit.cooldown = max(unit.cooldown - 1, 0)
-    
-    def matchOver(self):
+
+    def match_over(self):
         """
         Implements /src/logic.ts -> matchOver()
         /**
@@ -457,85 +466,86 @@ class Game:
         */
         """
 
-        if (self.state["turn"] >= self.configs["parameters"]["MAX_DAYS"] - 1):
+        if self.state["turn"] >= self.configs["parameters"]["MAX_DAYS"] - 1:
             return True
-        
+
         # over if at least one team has no units left or city tiles
         teams = [Constants.TEAM.A, Constants.TEAM.B]
-        cityCount = [0, 0]
+        city_count = [0, 0]
 
         for city in self.cities.values():
-            cityCount[city.team] += 1
+            city_count[city.team] += 1
 
         for team in teams:
-            if len(self.getTeamsUnits(team)) + cityCount[team] == 0:
+            if len(self.get_teams_units(team)) + city_count[team] == 0:
                 return True
 
         return False
 
-    def getWinningTeam(self):
+    def get_winning_team(self):
         """
         Implements /src/logic.ts -> getResults()
         """
-        
+
         # count city tiles
-        cityTileCount = [0, 0]
+        city_tile_count = [0, 0]
         for city in self.cities.values():
-            cityTileCount[city.team] += len(city.citycells)
-        
-        if (cityTileCount[Constants.TEAM.A] > cityTileCount[Constants.TEAM.B]):
+            city_tile_count[city.team] += len(city.city_cells)
+
+        if city_tile_count[Constants.TEAM.A] > city_tile_count[Constants.TEAM.B]:
             return Constants.TEAM.A
-        elif (cityTileCount[Constants.TEAM.A] < cityTileCount[Constants.TEAM.B]):
+        elif city_tile_count[Constants.TEAM.A] < city_tile_count[Constants.TEAM.B]:
             return Constants.TEAM.B
-        
+
         # if tied, count by units
-        unitCount = [
-            len(self.getTeamsUnits(Constants.TEAM.A)),
-            len(self.getTeamsUnits(Constants.TEAM.B)),
+        unit_count = [
+            len(self.get_teams_units(Constants.TEAM.A)),
+            len(self.get_teams_units(Constants.TEAM.B)),
         ]
-        if unitCount[Constants.TEAM.A] > unitCount[Constants.TEAM.B]:
+        if unit_count[Constants.TEAM.A] > unit_count[Constants.TEAM.B]:
             return Constants.TEAM.A
-        elif unitCount[Constants.TEAM.B] > unitCount[Constants.TEAM.A]:
+        elif unit_count[Constants.TEAM.B] > unit_count[Constants.TEAM.A]:
             return Constants.TEAM.B
-        
+
         # if tied still, count by fuel generation
         if (
-            self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] >
-            self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
+                self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] >
+                self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
         ):
             return Constants.TEAM.A
         elif (
-            self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] <
-            self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
+                self.stats["teamStats"][Constants.TEAM.A]["fuelGenerated"] <
+                self.stats["teamStats"][Constants.TEAM.B]["fuelGenerated"]
         ):
             return Constants.TEAM.B
 
         # if still undecided, for now, go by random choice
-        if ( random.random() > 0.5):
+        if random.random() > 0.5:
             return Constants.TEAM.A
         return Constants.TEAM.B
 
-
     def log(self, text):
-        ''' Logs the specified text'''
-        if self.logFile == None:
-            self.logFile = open("log.txt","w")
-        if text != None:
-            self.logFile.write(text + "\n")
+        """
+        Logs the specified text
+        :param text:
+        """
+        if self.log_file is None:
+            self.log_file = open("log.txt", "w")
+        if text is not None:
+            self.log_file.write(text + "\n")
 
-    def validateCommand(self, cmd, accumulatedActionStats=None):
+    def validate_command(self, cmd, accumulated_action_stats=None):
         """
         Returns an Action object if validated. If invalid, throws MatchWarn
         Implements src/Game/index.ts -> Game.validateCommand()
         """
-        if accumulatedActionStats is None:
-            accumulatedActionStats = self._genInitialAccumulatedActionStats()
+        if accumulated_action_stats is None:
+            accumulated_action_stats = self._gen_initial_accumulated_action_stats()
 
-        
         # TODO: IMPLEMENT THIS
         return cmd
 
-    def workerUnitCapReached(self, team, offset = 0):
+    def worker_unit_cap_reached(self, team, offset=0):
         """
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.workerUnitCapReached()
@@ -544,147 +554,152 @@ class Game:
         for city in self.cities.values():
             if city.team == team:
                 team_city_count += 1
-        
+
         return len(self.state["teamStates"][team]["units"]) + offset >= team_city_count
-    
-    def cartUnitCapReached(self, team, offset = 0):
+
+    def cart_unit_cap_reached(self, team, offset=0):
         """
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.cartUnitCapReached()
         """
         return self.worker_unit_cap_reached(team, offset)
-    
-    def spawnWorker(self, team, x, y, unitid = None, cooldown = 0.0, cargo = {"wood": 0, "uranium": 0, "coal":0}):
+
+    def spawn_worker(self, team, x, y, unit_id=None, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
         """
         Spawns new worker
         Implements src/Game/index.ts -> Game.spawnWorker()
         """
-        cell = self.map.getCell(x, y)
+        cell = self.map.get_cell(x, y)
         unit = Worker(
             x,
             y,
             team,
             self.configs,
-            self.globalUnitIDCount + 1,
+            self.global_unit_id_count + 1,
             cooldown,
             cargo
         )
 
-        if unitid:
-            unit.id = unitid
+        if unit_id:
+            unit.id = unit_id
         else:
-            self.globalUnitIDCount += 1
-        
+            self.global_unit_id_count += 1
+
         cell.units[unit.id] = unit
 
         self.state["teamStates"][team]["units"][unit.id] = unit
         self.stats["teamStats"][team]["workersBuilt"] += 1
         return unit
 
-    def spawnCart(self, team, x, y, unitid = None):
+    def spawn_cart(self, team, x, y, unit_id=None, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
         """
         Spawns new cart
         Implements src/Game/index.ts -> Game.spawnCart()
         """
-        cell = self.map.getCell(x, y)
-        unit = Cart(x, y, team, self.configs, self.globalUnitIDCount + 1)
-        if unitid:
-            unit.id = unitid
+        cell = self.map.get_cell(x, y)
+        unit = Cart(x,
+                    y,
+                    team,
+                    self.configs,
+                    self.global_unit_id_count + 1,
+                    cooldown,
+                    cargo)
+        if unit_id:
+            unit.id = unit_id
         else:
-            self.globalUnitIDCount += 1
-        
+            self.global_unit_id_count += 1
+
         cell.units[unit.id] = unit
         self.state["teamStates"][team]["units"][unit.id] = unit
         self.stats["teamStats"][team]["cartsBuilt"] += 1
         return unit
 
-    def spawnCityTile(self, team, x, y, cityid = None):
+    def spawn_city_tile(self, team, x, y, city_id=None):
         """
         Spawns new city tile
         Implements src/Game/index.ts -> Game.spawnCityTile()
         """
-        cell = self.map.getCell(x, y)
+        cell = self.map.get_cell(x, y)
 
         # now update the cities field accordingly
-        adjCells = self.map.getAdjacentCells(cell)
+        adj_cells = self.map.get_adjacent_cells(cell)
 
-        cityIdsFound = set()
+        city_ids_found = set()
 
-        adjSameTeamCityTiles = []
-        for cell2 in adjCells:
-            if cell2.isCityTile() and cell2.citytile.team == team:
-                adjSameTeamCityTiles.append(cell2)
-                cityIdsFound.add(cell2.citytile.cityid)
+        adj_same_team_city_tiles = []
+        for cell2 in adj_cells:
+            if cell2.is_city_tile() and cell2.city_tile.team == team:
+                adj_same_team_city_tiles.append(cell2)
+                city_ids_found.add(cell2.city_tile.city_id)
 
         # if no adjacent city cells of same team, generate new city
-        if len(adjSameTeamCityTiles) == 0:
-            city = City(team, self.configs, self.globalCityIDCount + 1)
+        if len(adj_same_team_city_tiles) == 0:
+            city = City(team, self.configs, self.global_city_id_count + 1)
 
-            if cityid != None:
-                city.id = cityid
+            if city_id is not None:
+                city.id = city_id
             else:
-                self.globalCityIDCount += 1
-            
-            cell.setCityTile(team, city.id)
-            city.addCityTile(cell)
+                self.global_city_id_count += 1
+
+            cell.set_city_tile(team, city.id)
+            city.add_city_tile(cell)
             self.cities[city.id] = city
-            return cell.citytile
-        
+            return cell.city_tile
+
         else:
             # otherwise add tile to city
-            cityid = adjSameTeamCityTiles[0].citytile.cityid
-            city = self.cities[cityid]
-            cell.setCityTile(team, cityid)
+            city_id = adj_same_team_city_tiles[0].city_tile.city_id
+            city = self.cities[city_id]
+            cell.set_city_tile(team, city_id)
 
             # update adjacency counts for bonuses
-            cell.citytile.adjacentCityTiles = len(adjSameTeamCityTiles)
-            for adjCell in adjSameTeamCityTiles:
-                adjCell.citytile.adjacentCityTiles += 1
-            city.addCityTile(cell)
+            cell.city_tile.adjacent_city_tiles = len(adj_same_team_city_tiles)
+            for adjCell in adj_same_team_city_tiles:
+                adjCell.city_tile.adjacent_city_tiles += 1
+            city.add_city_tile(cell)
 
-            # update all merged cities' cells with merged cityid, move to merged city and delete old city
-            for id in cityIdsFound:
-                if id != cityid:
-                    oldcity = self.cities[id]
-                    for cell3 in oldcity.citycells:
-                        cell3.citytile.cityid = cityid
-                        city.addCityTile(cell3)
-                
-                    city.fuel += oldcity.fuel
-                    self.cities.pop(oldcity.id)
-            
-            return cell.citytile
+            # update all merged cities' cells with merged city_id, move to merged city and delete old city
+            for local_id in city_ids_found:
+                if local_id != city_id:
+                    old_city = self.cities[local_id]
+                    for cell3 in old_city.city_cells:
+                        cell3.city_tile.city_id = city_id
+                        city.add_city_tile(cell3)
 
-    def moveUnit(self, team, unitid, direction):
+                    city.fuel += old_city.fuel
+                    self.cities.pop(old_city.id)
+
+            return cell.city_tile
+
+    def move_unit(self, team, unit_id, direction):
         """
         Moves a unit
         Implements src/Game/index.ts -> Game.moveUnit()
         """
-        unit = self.getUnit(team, unitid)
+        unit = self.get_unit(team, unit_id)
 
         # remove unit from old cell and move to new one and update unit pos
-        self.map.getCellByPos(unit.pos).units.pop(unit.id)
+        self.map.get_cell_by_pos(unit.pos).units.pop(unit.id)
         unit.pos = unit.pos.translate(direction, 1)
-        self.map.getCellByPos(unit.pos).units[unit.id] = unit
+        self.map.get_cell_by_pos(unit.pos).units[unit.id] = unit
 
-    def distributeAllResources(self):
+    def distribute_all_resources(self):
         """
         Distributes resources
         Implements src/Game/index.ts -> Game.distributeAllResources()
         """
-        miningOrder = [
+        mining_order = [
             Constants.RESOURCE_TYPES.URANIUM,
             Constants.RESOURCE_TYPES.COAL,
             Constants.RESOURCE_TYPES.WOOD,
         ]
 
-        for curType in miningOrder:
-            self.handleResourceTypeRelease(curType)
+        for curType in mining_order:
+            self.handle_resource_type_release(curType)
 
-
-    def handleResourceTypeRelease(self, resourceType):
+    def handle_resource_type_release(self, resource_type):
         """
-        * For each unit, check current and orthoganally adjancent cells for that resource
+        * For each unit, check current and orthoganally adjacent cells for that resource
         * type. If found, request as much as we can carry from these cells. In the case of un-even 
         * amounts, the unit will request an equal amount from all tiles to fill their cargo, then
         * discard the rest. (for example on 3 wood tiles with 60 wood it would request 17 to each
@@ -693,7 +708,7 @@ class Game:
         * If the unit is on a city tile, only one request will be made (even if there are 
         * multiple workers on the tile )and the resources will be deposited into the city as fuel.
         * 
-        * Once all units have requested resources, distrubte the resources, reducing requests
+        * Once all units have requested resources, distribute the resources, reducing requests
         * requests if it would exceed the current value. In this case the remaining
         * will be distributed evenly, with the leftovers discarded.
         * 
@@ -701,102 +716,123 @@ class Game:
         * Description copy pasted from src/Game/index.ts -> Game.handleResourceTypeRelease()
         """
         # build up the resource requests
-        requests = self.createResourceRequests(resourceType)
+        requests = self.create_resource_requests(resource_type)
 
         # resolve resource requests
-        self.resolveResourceRequests(resourceType, requests)
-
+        self.resolve_resource_requests(resource_type, requests)
 
     class ResourceRequest:
-        def __init__(self, fromPos, amount, worker, city):
-            self.fromPos = fromPos
+        def __init__(self, from_pos, amount, worker, city):
+            """
+
+            :param from_pos:
+            :param amount:
+            :param worker:
+            :param city:
+            """
+            self.fromPos = from_pos
             self.amount = amount
             self.worker = worker
             self.city = city
 
         def __eq__(self, other) -> bool:
-            return ( 
-                self.fromPos == other.fromPos
-                and (self.worker.id if self.worker else None) == (other.worker.id if other.worker else None)
-                and self.amount == other.amount
-                and (self.city.id if self.city else None) == (other.city.id if other.city else None)
-                )
-    
-    def createResourceRequests(self, resourceType):
+            """
+
+            :param other:
+            :return:
+            """
+            return (
+                    self.fromPos == other.fromPos
+                    and (self.worker.id if self.worker else None) == (other.worker.id if other.worker else None)
+                    and self.amount == other.amount
+                    and (self.city.id if self.city else None) == (other.city.id if other.city else None)
+            )
+
+    def create_resource_requests(self, resource_type):
+        """
+
+        :param resource_type:
+        :return:
+        """
         type_map = {
-                Constants.RESOURCE_TYPES.WOOD : "WOOD",
-                Constants.RESOURCE_TYPES.COAL : "COAL",
-                Constants.RESOURCE_TYPES.URANIUM : "URANIUM",
+            Constants.RESOURCE_TYPES.WOOD: "WOOD",
+            Constants.RESOURCE_TYPES.COAL: "COAL",
+            Constants.RESOURCE_TYPES.URANIUM: "URANIUM",
         }
-        miningRate = rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type_map[resourceType]]
+        mining_rate = rate = self.configs["parameters"]["WORKER_COLLECTION_RATE"][type_map[resource_type]]
         reqs = {}
         for team in [Constants.TEAM.A, Constants.TEAM.B]:
-            if self.state["teamStates"][team]["researched"][resourceType]:
+            if self.state["teamStates"][team]["researched"][resource_type]:
                 for unit in self.state["teamStates"][team]["units"].values():
                     if unit.type == Constants.UNIT_TYPES.WORKER:
-                        unitCell = self.map.getCellByPos(unit.pos)
-                        cells = [unitCell] + self.map.getAdjacentCells(unitCell)
-                        minable = [c for c in cells if c.hasResource() and c.resource.type == resourceType]
+                        unit_cell = self.map.get_cell_by_pos(unit.pos)
+                        cells = [unit_cell] + self.map.get_adjacent_cells(unit_cell)
+                        minable = [c for c in cells if c.has_resource() and c.resource.type == resource_type]
                         if len(minable) > 0:
-                            mineAmount = min(math.ceil(unit.getCargoSpaceLeft() / len(minable)), miningRate)
+                            mine_amount = min(math.ceil(unit.get_cargo_space_left() / len(minable)), mining_rate)
                         for cell in minable:
                             if cell.pos not in reqs:
                                 reqs[cell.pos] = []
                             req = Game.ResourceRequest(
-                                unit.pos, 
-                                mineAmount, 
-                                None if unitCell.isCityTile() else unit, 
-                                self.cities[unitCell.citytile.cityid] if unitCell.isCityTile() else None, 
-                                )
-                            hasReq = req in reqs[cell.pos]
-                            if not hasReq:
+                                unit.pos,
+                                mine_amount,
+                                None if unit_cell.is_city_tile() else unit,
+                                self.cities[unit_cell.city_tile.city_id] if unit_cell.is_city_tile() else None,
+                            )
+                            has_req = req in reqs[cell.pos]
+                            if not has_req:
                                 reqs[cell.pos].append(req)
         return reqs
 
-    def resolveResourceRequests(self, resourceType, requests):
+    def resolve_resource_requests(self, resource_type, requests):
+        """
+
+        :param resource_type:
+        :param requests:
+        :return:
+        """
         type_map = {
-                Constants.RESOURCE_TYPES.WOOD : "WOOD",
-                Constants.RESOURCE_TYPES.COAL : "COAL",
-                Constants.RESOURCE_TYPES.URANIUM : "URANIUM",
+            Constants.RESOURCE_TYPES.WOOD: "WOOD",
+            Constants.RESOURCE_TYPES.COAL: "COAL",
+            Constants.RESOURCE_TYPES.URANIUM: "URANIUM",
         }
-        conversionRate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_map[resourceType]]
+        conversion_rate = self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_map[resource_type]]
         for position, reqs in requests.items():
-            amountLeft = self.map.getCellByPos(position).resource.amount
-            amountsReqs = reqs # dont make tuples like typescript reference implementation
-            while len(amountsReqs) > 0 and sum([req.amount for req in amountsReqs]) > 0 and amountLeft > 0:
-                toFill = min(min([req.amount for req in amountsReqs]), math.floor(amountLeft/len(amountsReqs)))
-                for r in amountsReqs:
+            amount_left = self.map.get_cell_by_pos(position).resource.amount
+            amounts_reqs = reqs  # dont make tuples like typescript reference implementation
+            while len(amounts_reqs) > 0 and sum([req.amount for req in amounts_reqs]) > 0 and amount_left > 0:
+                to_fill = min(min([req.amount for req in amounts_reqs]), math.floor(amount_left / len(amounts_reqs)))
+                for r in amounts_reqs:
                     if r.city is not None:
-                        self.stats["teamStats"][r.city.team]["resourcesCollected"][resourceType] += toFill
-                        r.city.fuel += toFill * conversionRate
+                        self.stats["teamStats"][r.city.team]["resourcesCollected"][resource_type] += to_fill
+                        r.city.fuel += to_fill * conversion_rate
                     else:
-                        toGive = min(r.worker.getCargoSpaceLeft(), toFill)
-                        self.stats["teamStats"][r.worker.team]["resourcesCollected"][resourceType] += toGive
-                        r.worker.cargo[resourceType] += toGive
-                    r.amount -= toFill
-                amountLeft -= toFill * len(amountsReqs)
-                if amountLeft < len(amountsReqs):
-                    amountLeft = 0
-                amountsReqs = list(filter(lambda r: r.amount>0, amountsReqs))
-            cell = self.map.getCellByPos(position)
-            cell.resource.amount = amountLeft
-        
-    
-    def handleResourceDeposit(self, unit):
+                        to_give = min(r.worker.get_cargo_space_left(), to_fill)
+                        self.stats["teamStats"][r.worker.team]["resourcesCollected"][resource_type] += to_give
+                        r.worker.cargo[resource_type] += to_give
+                    r.amount -= to_fill
+                amount_left -= to_fill * len(amounts_reqs)
+                if amount_left < len(amounts_reqs):
+                    amount_left = 0
+                amounts_reqs = list(filter(lambda r: r.amount > 0, amounts_reqs))
+            cell = self.map.get_cell_by_pos(position)
+            cell.resource.amount = amount_left
+
+    def handle_resource_deposit(self, unit):
         """
         Auto deposit resources of unit to tile it is on
         Implements src/Game/index.ts -> Game.handleResourceDeposit()
         """
-        cell = self.map.getCellByPos(unit.pos)
-        if (cell.isCityTile() and cell.citytile.team == unit.team):
-            city = self.cities.get(cell.citytile.cityid)
-            fuelGained = 0
-            fuelGained += unit.cargo["wood"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
-            fuelGained += unit.cargo["coal"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
-            fuelGained += unit.cargo["uranium"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
-            city.fuel += fuelGained
+        cell = self.map.get_cell_by_pos(unit.pos)
+        if cell.is_city_tile() and cell.city_tile.team == unit.team:
+            city = self.cities.get(cell.city_tile.city_id)
+            fuel_gained = 0
+            fuel_gained += unit.cargo["wood"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"]
+            fuel_gained += unit.cargo["coal"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"]
+            fuel_gained += unit.cargo["uranium"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
+            city.fuel += fuel_gained
 
-            self.stats["teamStats"][unit.team]["fuelGenerated"] += fuelGained
+            self.stats["teamStats"][unit.team]["fuelGenerated"] += fuel_gained
 
             unit.cargo = {
                 "wood": 0,
@@ -804,61 +840,61 @@ class Game:
                 "coal": 0,
             }
 
-    def getTeamsUnits(self, team):
+    def get_teams_units(self, team):
         """
         Get list of units.
         Implements src/Game/index.ts -> Game.getTeamsUnits()
         """
         return self.state["teamStates"][team]["units"]
 
-    def getUnit(self, team, unitid):
+    def get_unit(self, team, unit_id):
         """
         Get the specific unit.
         Implements src/Game/index.ts -> Game.getUnit()
         """
-        return self.state["teamStates"][team]["units"][unitid]
-    
-    def transferResources(self, team, srcID, destID, resourceType, amount):
+        return self.state["teamStates"][team]["units"][unit_id]
+
+    def transfer_resources(self, team, source_id, destination_id, resource_type, amount):
         """
-        Transfer resouces on a given team between 2 units. This does not check adjacency requirement, but its expected
+        Transfer resources on a given team between 2 units. This does not check adjacency requirement, but its expected
         that the 2 units are adjacent. This allows for simultaneous movement of 1 unit and transfer of another
         Implements src/Game/index.ts -> transferResources()
         """
-        srcunit = self.getUnit(team, srcID)
-        destunit = self.getUnit(team, destID)
+        source_unit = self.get_unit(team, source_id)
+        destination_unit = self.get_unit(team, destination_id)
         # the amount to actually transfer is the minimum of:
-        transferAmount = math.min(
+        transfer_amount = math.min(
             # the amount requested
             amount,
             # and all that we have if that's less than requested
-            srcunit.cargo[resourceType],
+            source_unit.cargo[resource_type],
             # and no more than destination-unit's remaining cargo-space
-            destunit.getCargoSpaceLeft()
+            destination_unit.get_cargo_space_left()
         )
-        srcunit.cargo[resourceType] -= transferAmount
-        destunit.cargo[resourceType] += transferAmount
-    
-    def destroyCity(self, team, cityID):
+        source_unit.cargo[resource_type] -= transfer_amount
+        destination_unit.cargo[resource_type] += transfer_amount
+
+    def destroy_city(self, team, city_id):
         """
         Destroys the unit with this id and team and removes from tile
         Implements src/Game/index.ts -> Game.destroyCity()
         """
-        city = self.cities.get(cityID)
-        self.cities.pop(cityID)
-        for cell in city.citycells:
-            cell.citytile = None
+        city = self.cities.get(city_id)
+        self.cities.pop(city_id)
+        for cell in city.city_cells:
+            cell.city_tile = None
             cell.road = self.configs["parameters"]["MIN_ROAD"]
-    
-    def destroyUnit(self, team, unitid):
+
+    def destroy_unit(self, team, unit_id):
         """
         Destroys the unit with this id and team and removes from tile
         Implements src/Game/index.ts -> Game.destroyUnit()
         """
-        unit = self.getUnit(team, unitid);
-        self.map.getCellByPos(unit.pos).units.pop(unitid)
-        self.state["teamStates"][team]["units"].pop(unitid)
+        unit = self.get_unit(team, unit_id)
+        self.map.get_cell_by_pos(unit.pos).units.pop(unit_id)
+        self.state["teamStates"][team]["units"].pop(unit_id)
 
-    def regenerateTrees(self):
+    def regenerate_trees(self):
         """
         Regenerate trees
         Implements src/Game/index.ts -> Game.regenerateTrees()
@@ -873,7 +909,7 @@ class Game:
         if Constants.RESOURCE_TYPES.WOOD in self.map.resources_by_type:
             for cell in self.map.resources_by_type[Constants.RESOURCE_TYPES.WOOD]:
                 # add this condition so we let forests near a city start large (but not regrow until below a max)
-                if (cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]):
+                if cell.resource.amount < self.configs["parameters"]["MAX_WOOD_AMOUNT"]:
                     cell.resource.amount = math.ceil(
                         min(
                             cell.resource.amount * self.configs["parameters"]["WOOD_GROWTH_RATE"],
@@ -881,7 +917,7 @@ class Game:
                         )
                     )
 
-    def handleMovementActions(self, actions):
+    def handle_movement_actions(self, actions):
         """
         Process given move actions and returns a pruned array of actions that can all be executed with no collisions
         Implements src/Game/index.ts -> Game.handleMovementActions()
@@ -899,116 +935,117 @@ class Game:
         *
         */
         """
-        cellsToActionsToThere = {}
-        movingUnits = set()
+        cells_to_actions_to_there = {}
+        moving_units = set()
 
         for action in actions:
-            newcell = self.map.getCellByPos(
-                self.getUnit(action.team, action.unitid).pos.translate(action.direction, 1)
+            new_cell = self.map.get_cell_by_pos(
+                self.get_unit(action.team, action.unit_id).pos.translate(action.direction, 1)
             )
-            if newcell != None:
-                #newcell = action.newcell
-                if newcell in cellsToActionsToThere:
-                    cellsToActionsToThere[newcell] += [action]
+            if new_cell is not None:
+                # new_cell = action.new_cell
+                if new_cell in cells_to_actions_to_there:
+                    cells_to_actions_to_there[new_cell] += [action]
                 else:
-                    cellsToActionsToThere[newcell] = [action]
-                
-                movingUnits.add(action.unitid)
+                    cells_to_actions_to_there[new_cell] = [action]
 
-        def revertAction(action):
+                moving_units.add(action.unit_id)
+
+        def revert_action(action):
             # reverts a given action such that cellsToActionsToThere has no collisions due to action and all related actions
-            self.log(f"turn {{self.state['turn']}} Unit {{action.unitid}} collided when trying to move {{action.direction}} to ({{action.newcell.pos.x}}, {{action.newcell.pos.y}})")
-            
-            origcell = self.map.getCellByPos(
-                self.getUnit(action.team, action.unitid).pos
+            self.log(
+                f"turn {{self.state['turn']}} Unit {{action.unit_id}} collided when trying to move {{action.direction}} to ({{action.newcell.pos.x}}, {{action.newcell.pos.y}})")
+
+            original_cell = self.map.get_cell_by_pos(
+                self.get_unit(action.team, action.unit_id).pos
             )
 
             # get the colliding actions caused by a revert of the given action and then delete them from the mapped origcell provided it is not a city tile
-            collidingActions = cellsToActionsToThere[origcell] if origcell in cellsToActionsToThere else None
-            if (not origcell.isCityTile()):
-                if (collidingActions is not None):
-                    cellsToActionsToThere.pop(origcell)
+            colliding_actions = cells_to_actions_to_there[
+                original_cell] if original_cell in cells_to_actions_to_there else None
+            if not original_cell.is_city_tile():
+                if colliding_actions is not None:
+                    cells_to_actions_to_there.pop(original_cell)
 
                     # for each colliding action, revert it.
-                    for collidingAction in collidingActions:
-                        revertAction(collidingAction)
+                    for collidingAction in colliding_actions:
+                        revert_action(collidingAction)
 
-        actionedCells = list(cellsToActionsToThere.keys())
-        for cell in actionedCells:
-            if cell in cellsToActionsToThere:
-                currActions = cellsToActionsToThere[cell]
-                actionsToRevert = []
-                if (currActions != None):
-                    if (len(currActions) > 1):
+        actioned_cells = list(cells_to_actions_to_there.keys())
+        for cell in actioned_cells:
+            if cell in cells_to_actions_to_there:
+                current_actions = cells_to_actions_to_there[cell]
+                actions_to_revert = []
+                if current_actions is not None:
+                    if len(current_actions) > 1:
                         # only revert actions that are going to the same tile that is not a city
                         # if going to the same city tile, we know those actions are from same team units, and is allowed
-                        if (not cell.isCityTile()):
-                            actionsToRevert += currActions
-                    elif (len(currActions) == 1):
+                        if not cell.is_city_tile():
+                            actions_to_revert += current_actions
+                    elif len(current_actions) == 1:
                         # if there is just one move action, check there isn't a unit on there that is not moving and not a city tile
-                        action = currActions[0]
-                        if (not cell.isCityTile()):
-                            if (len(cell.units) == 1):
-                                unitThereIsStill = True
+                        action = current_actions[0]
+                        if not cell.is_city_tile():
+                            if len(cell.units) == 1:
+                                unit_there_is_still = True
                                 for unit in cell.units.values():
-                                    if (unit.id in movingUnits):
-                                        unitThereIsStill = False
-                                if (unitThereIsStill):
-                                    actionsToRevert.append(action)
-            
+                                    if unit.id in moving_units:
+                                        unit_there_is_still = False
+                                if unit_there_is_still:
+                                    actions_to_revert.append(action)
+
             # if there are collisions, revert those actions and remove the mapping
-            for action in actionsToRevert:
-                revertAction(action)
-            for action in actionsToRevert:
-                newcell = self.map.getCellByPos(
-                    self.getUnit(action.team, action.unitid).pos.translate(action.direction, 1)
+            for action in actions_to_revert:
+                revert_action(action)
+            for action in actions_to_revert:
+                new_cell = self.map.get_cell_by_pos(
+                    self.get_unit(action.team, action.unit_id).pos.translate(action.direction, 1)
                 )
-                if newcell in cellsToActionsToThere:
-                    cellsToActionsToThere.pop(newcell)
-        
-        prunedActions = []
-        for currActions in cellsToActionsToThere.values():
-            prunedActions += currActions
+                if new_cell in cells_to_actions_to_there:
+                    cells_to_actions_to_there.pop(new_cell)
 
-        return prunedActions
-        
+        pruned_actions = []
+        for current_actions in cells_to_actions_to_there.values():
+            pruned_actions += current_actions
 
-    def isNight(self):
+        return pruned_actions
+
+    def is_night(self):
         """
         Is it night.
         Implements src/Game/index.ts -> Game.isNight()
         """
-        dayLength = self.configs["parameters"]["DAY_LENGTH"]
-        cycleLength = dayLength + self.configs["parameters"]["NIGHT_LENGTH"]
-        return (self.state["turn"] % cycleLength) >= dayLength
-    
-    def toStateObject(self):
+        day_length = self.configs["parameters"]["DAY_LENGTH"]
+        cycle_length = day_length + self.configs["parameters"]["NIGHT_LENGTH"]
+        return (self.state["turn"] % cycle_length) >= day_length
+
+    def to_state_object(self):
         """
         Serialize state
         Implements src/Game/index.ts -> Game.toStateObject()
         """
         cities = {}
         for city in self.cities.values():
-            cityCells = []
-            for cell in city.citycells:
-                cityCells.append({
+            city_cells = []
+            for cell in city.city_cells:
+                city_cells.append({
                     "x": cell.pos.x,
                     "y": cell.pos.y,
-                    "cooldown": cell.citytile.cooldown,
+                    "cooldown": cell.city_tile.cooldown,
                 })
-            
+
             cities[city.id] = {
                 "id": city.id,
                 "fuel": city.fuel,
-                "lightupkeep": city.getLightUpkeep(),
+                "lightupkeep": city.get_light_upkeep(),
                 "team": city.team,
-                "cityCells": cityCells
+                "cityCells": city_cells
             }
-        
+
         state = {
             "turn": self.state["turn"],
-            "globalCityIDCount": self.globalCityIDCount,
-            "globalUnitIDCount": self.globalUnitIDCount,
+            "globalCityIDCount": self.global_city_id_count,
+            "globalunit_idCount": self.global_unit_id_count,
             "teamStats": {
                 Constants.TEAM.A: {
                     "researchPoints": 0,
@@ -1029,11 +1066,11 @@ class Game:
                     },
                 },
             },
-            map: self.map.toStateObject(),
-            "cities" : cities,
+            map: self.map.to_state_object(),
+            "cities": cities,
         }
 
-        teams = [Constants.TEAM.A, Constants.TEAM.B];
+        teams = [Constants.TEAM.A, Constants.TEAM.B]
         for team in teams:
             for unit in self.state["teamStates"][team]["units"].values():
                 state["teamStates"][team]["units"][unit.id] = {
@@ -1043,8 +1080,8 @@ class Game:
                     "y": unit.pos.y,
                     "type": unit.type,
                 }
-            
+
             state["teamStates"][team]["researchPoints"] = self.state["teamStates"][team]["researchPoints"]
-            state["teamStates"][team]["researched"] = dict( self.state["teamStates"][team]["researched"] )
+            state["teamStates"][team]["researched"] = dict(self.state["teamStates"][team]["researched"])
 
         return state
