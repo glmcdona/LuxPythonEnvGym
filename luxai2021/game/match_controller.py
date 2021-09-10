@@ -92,7 +92,7 @@ class MatchController:
         """
         for a in self.agents:
             if a != agent:
-                a.setTeam(team)
+                a.set_team(team)
 
     def run_to_next_observation(self):
         """ 
