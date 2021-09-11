@@ -66,7 +66,7 @@ class MatchController:
          """
         if action is not None:
             # Validate the action
-            if action.is_valid(self.game):
+            if action.is_valid(self.game, self.action_buffer):
                 # Add the action
                 self.action_buffer.append(action)
 
