@@ -87,7 +87,7 @@ def train(args):
     player = AgentPolicy(mode="train")
 
     # Train the model
-    num_cpu = 6
+    num_cpu = 1
     if num_cpu == 1:
         env = LuxEnvironment(configs=configs,
                              learning_agent=player,
