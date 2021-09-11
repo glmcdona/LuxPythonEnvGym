@@ -61,7 +61,7 @@ class MoveAction(Action):
         new_pos = unit.pos.translate(self.direction, 1)
         if new_pos.y < 0 or new_pos.y >= game.map.height:
             return False
-        if new_pos.x < 0 or new_pos.x >= game.map.height:
+        if new_pos.x < 0 or new_pos.x >= game.map.width:
             return False
 
         # Note: Collisions are handled in the turn loop as both players move
@@ -163,7 +163,7 @@ class SpawnWorkerAction(SpawnAction):
 
         if self.y < 0 or self.y >= game.map.height:
             return False
-        if self.x < 0 or self.x >= game.map.height:
+        if self.x < 0 or self.x >= game.map.width:
             return False
 
         city_tile = game.map.get_cell(self.x, self.y).city_tile
@@ -239,7 +239,7 @@ class SpawnCityAction(Action):
 
 
 class TransferAction(Action):
-    def __init__(self, team, source_id, destination_id, resource_type, amount):
+    def __init__(self, team, source_id, destination_id, resource_type, amount, **kwarg):
         """
 
         :param team:
@@ -247,6 +247,7 @@ class TransferAction(Action):
         :param destination_id:
         :param resource_type:
         :param amount:
+        :param kwarg:
         """
         action = Constants.ACTIONS.TRANSFER
         self.source_id = source_id
@@ -262,14 +263,38 @@ class TransferAction(Action):
         Returns: String-serialized action message to send kaggle controller
         """
         return "t {} {} {} {}".format(self.source_id, self.destination_id, self.resource_type, self.amount)
+    
+    def is_valid(self, game) -> bool:
+        """
+        Validates the command.
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
+        """
+        if self.source_id is None or self.destination_id is None or self.team is None or self.resource_type is None:
+            return False
+
+        if self.source_id == self.destination_id:
+            return False
+
+        unit_src = game.get_unit(self.team, self.source_id)
+        unit_dst = game.get_unit(self.team, self.destination_id)
+
+        if not unit_src.can_act():
+            return False
+        
+        if not unit_src.pos.is_adjacent(unit_dst.pos):
+            return False
+        
+        return True
 
 
 class PillageAction(Action):
-    def __init__(self, team, unit_id):
+    def __init__(self, team, unit_id, **kwarg):
         """
         
         :param team: 
         :param unit_id: 
+        :param kwarg:
         """
         action = Constants.ACTIONS.PILLAGE
         self.unit_id = unit_id
@@ -282,10 +307,35 @@ class PillageAction(Action):
         :return: (str) String-serialized action message to send kaggle controller
         """
         return "p {}".format(self.unit_id)
+    
+    def is_valid(self, game) -> bool:
+        """
+        Validates the command.
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
+        """
+        if self.unit_id is None or self.team is None:
+            return False
+
+        unit = game.get_unit(self.team, self.unit_id)
+
+        # Validate it can act
+        if not unit.can_act():
+            return False
+
+        return True
 
 
 class ResearchAction(Action):
-    def __init__(self, team, x, y):
+    def __init__(self, team, x, y, **kwarg):
+        """
+        Create a research action.
+
+        Args:
+            team ([type]):
+            x ([type]):
+            y ([type]):
+        """
         action = Constants.ACTIONS.RESEARCH
         self.x = x
         self.y = y
@@ -298,3 +348,26 @@ class ResearchAction(Action):
         :return: (str) String-serialized action message to send kaggle controller
         """
         return "r {} {}".format(self.x, self.y)
+    
+    def is_valid(self, game) -> bool:
+        """
+        Validates the command.
+        :param game:
+        :return: (bool) True if it's valid, False otherwise
+        """
+        if self.x is None or self.y is None or self.team is None:
+            return False
+
+        if self.y < 0 or self.y >= game.map.height:
+            return False
+        if self.x < 0 or self.x >= game.map.width:
+            return False
+
+        city_tile = game.map.get_cell(self.x, self.y).city_tile
+        if city_tile is None:
+            return False
+
+        if not city_tile.can_research():
+            return False
+
+        return True
