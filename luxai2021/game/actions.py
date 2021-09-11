@@ -11,10 +11,11 @@ class Action:
         self.action = action
         self.team = team
 
-    def is_valid(self, game):
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
+        :param actions_validated: Other actions that have already been validated for this turn.
         :return: True if it's valid, False otherwise
         """
         return True
@@ -42,11 +43,12 @@ class MoveAction(Action):
         self.direction = direction
         super().__init__(action, team)
 
-    def is_valid(self, game) -> bool:
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.unit_id is None or self.team is None or self.direction is None:
             return False
@@ -64,7 +66,37 @@ class MoveAction(Action):
         if new_pos.x < 0 or new_pos.x >= game.map.width:
             return False
 
-        # Note: Collisions are handled in the turn loop as both players move
+        # Basic unit collision check
+        target_cell = game.map.get_cell_by_pos(new_pos)
+        if not target_cell.is_city_tile():
+            # Get units adjacent to target. Ignore opponents, because they might move.
+            adjacent_cells = game.map.get_adjacent_cells(target_cell)
+            adjacent_cells.append(target_cell) # Also look at the target cell
+
+            # Index move actions
+            moves = {}
+            for action in actions_validated:
+                if action.action == Constants.ACTIONS.MOVE:
+                    moves[action.unit_id] = game.get_unit(self.team, action.unit_id).pos.translate(action.direction, 1)
+
+            # Get potential collision units from our team
+            for c in adjacent_cells:
+                for id, u in c.units.items():
+                    if u.team == self.team:
+                        if id != self.unit_id:
+                            # This unit is a potential collision
+                            if id in moves:
+                                # Check the unit move target for collision
+                                if new_pos == moves[id]:
+                                    # Collides with move target of existing unit
+                                    return False
+                            else:
+                                # Check this unit's current position for a collision
+                                if new_pos == unit.pos:
+                                    # Collides with a unit in the way
+                                    return False
+
+        # Note: True collisions are handled in the turn loop as both players move
         return True
 
     def to_message(self, game) -> str:
@@ -107,10 +139,11 @@ class SpawnCartAction(SpawnAction):
         self.type = UNIT_TYPES.CART
         super().__init__(action, team, unit_id, x, y)
 
-    def is_valid(self, game):
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
-        ::param game:
+        :param game:
+        :param actions_validated: Other actions that have already been validated for this turn.
         :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:
@@ -152,11 +185,12 @@ class SpawnWorkerAction(SpawnAction):
         self.type = UNIT_TYPES.WORKER
         super().__init__(action, team, unit_id, x, y)
 
-    def is_valid(self, game):
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:
             return False
@@ -200,11 +234,12 @@ class SpawnCityAction(Action):
         self.unit_id = unit_id
         super().__init__(action, team)
 
-    def is_valid(self, game) -> bool:
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.unit_id is None or self.team is None:
             return False
@@ -264,11 +299,12 @@ class TransferAction(Action):
         """
         return "t {} {} {} {}".format(self.source_id, self.destination_id, self.resource_type, self.amount)
     
-    def is_valid(self, game) -> bool:
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.source_id is None or self.destination_id is None or self.team is None or self.resource_type is None:
             return False
@@ -308,11 +344,12 @@ class PillageAction(Action):
         """
         return "p {}".format(self.unit_id)
     
-    def is_valid(self, game) -> bool:
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.unit_id is None or self.team is None:
             return False
@@ -349,11 +386,12 @@ class ResearchAction(Action):
         """
         return "r {} {}".format(self.x, self.y)
     
-    def is_valid(self, game) -> bool:
+    def is_valid(self, game, actions_validated):
         """
         Validates the command.
         :param game:
-        :return: (bool) True if it's valid, False otherwise
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:
             return False
