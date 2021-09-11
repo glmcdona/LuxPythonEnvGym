@@ -90,11 +90,11 @@ class MoveAction(Action):
                                 if new_pos == moves[id]:
                                     # Collides with move target of existing unit
                                     return False
-                            else:
-                                # Check this unit's current position for a collision
-                                if new_pos == unit.pos:
-                                    # Collides with a unit in the way
-                                    return False
+                            
+                            # Check this unit's current position for a collision
+                            if new_pos == unit.pos:
+                                # Collides with a unit in the way
+                                return False
 
         # Note: True collisions are handled in the turn loop as both players move
         return True
@@ -149,6 +149,9 @@ class SpawnCartAction(SpawnAction):
         if self.x is None or self.y is None or self.team is None:
             return False
 
+        if self.unit_id != None:
+            return False
+
         city_tile = game.map.get_cell(self.x, self.y).city_tile
         if city_tile is None:
             return False
@@ -193,6 +196,9 @@ class SpawnWorkerAction(SpawnAction):
         :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:
+            return False
+
+        if self.unit_id != None:
             return False
 
         if self.y < 0 or self.y >= game.map.height:
@@ -364,7 +370,7 @@ class PillageAction(Action):
 
 
 class ResearchAction(Action):
-    def __init__(self, team, x, y, **kwarg):
+    def __init__(self, team, x, y, unit_id, **kwarg):
         """
         Create a research action.
 
@@ -376,6 +382,7 @@ class ResearchAction(Action):
         action = Constants.ACTIONS.RESEARCH
         self.x = x
         self.y = y
+        self.unit_id = unit_id
         super().__init__(action, team)
 
     def to_message(self, game) -> str:
@@ -394,6 +401,9 @@ class ResearchAction(Action):
         :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:
+            return False
+        
+        if self.unit_id != None:
             return False
 
         if self.y < 0 or self.y >= game.map.height:
