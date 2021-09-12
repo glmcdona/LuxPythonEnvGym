@@ -108,13 +108,13 @@ class CityTile(Actionable):
                 self.reset_cooldown()
             elif isinstance(action, ResearchAction):
                 self.reset_cooldown()
-                game.state.teamStates[self.team]["researchPoints"] += 1
+                game.state["teamStates"][self.team]["researchPoints"] += 1
                 if (game.state["teamStates"][self.team]["researchPoints"] >=
                         self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]):
-                    game.state.teamStates[self.team]["researched"]["coal"] = True
-                if (game.state.teamStates[self.team]["researchPoints"] >=
+                    game.state["teamStates"][self.team]["researched"]["coal"] = True
+                if (game.state["teamStates"][self.team]["researchPoints"] >=
                         self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]):
-                    game.state.teamStates[self.team]["researched"]["uranium"] = True
+                    game.state["teamStates"][self.team]["researched"]["uranium"] = True
 
         if self.cooldown > 0:
             self.cooldown -= 1
