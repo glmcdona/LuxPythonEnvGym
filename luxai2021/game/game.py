@@ -862,7 +862,7 @@ class Game:
         source_unit = self.get_unit(team, source_id)
         destination_unit = self.get_unit(team, destination_id)
         # the amount to actually transfer is the minimum of:
-        transfer_amount = math.min(
+        transfer_amount = min(
             # the amount requested
             amount,
             # and all that we have if that's less than requested
