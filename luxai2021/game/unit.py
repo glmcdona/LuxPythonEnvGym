@@ -282,6 +282,6 @@ class Cart(Unit):
         if end_cell.get_road() < self.configs["parameters"]["MAX_ROAD"]:
             end_cell.road = min(
                 end_cell.road + self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"],
-                self.configs.parameters.MAX_ROAD
+                self.configs["parameters"]["MAX_ROAD"]
             )
             game.stats.teamStats[self.team].roadsBuilt += self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"]
