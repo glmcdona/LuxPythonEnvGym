@@ -284,4 +284,4 @@ class Cart(Unit):
                 end_cell.road + self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"],
                 self.configs["parameters"]["MAX_ROAD"]
             )
-            game.stats.teamStats[self.team].roadsBuilt += self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"]
+            game.stats["teamStats"][self.team].roadsBuilt += self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"]
