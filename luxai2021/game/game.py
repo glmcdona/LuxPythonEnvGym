@@ -549,12 +549,12 @@ class Game:
         Returns True if unit cap reached
         Implements src/Game/index.ts -> Game.workerUnitCapReached()
         """
-        team_city_count = 0
+        team_city_tile_count = 0
         for city in self.cities.values():
             if city.team == team:
-                team_city_count += 1
-
-        return len(self.state["teamStates"][team]["units"]) + offset >= team_city_count
+                team_city_tile_count += len(city.city_cells)
+        
+        return len(self.state["teamStates"][team]["units"]) + offset >= team_city_tile_count
 
     def cart_unit_cap_reached(self, team, offset=0):
         """
