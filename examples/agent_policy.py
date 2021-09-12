@@ -15,6 +15,9 @@ from luxai2021.game.position import Position
 def closest_node(node, nodes):
     dist_2 = np.sum((nodes - node) ** 2, axis=1)
     return np.argmin(dist_2)
+def furthest_node(node, nodes):
+    dist_2 = np.sum((nodes - node) ** 2, axis=1)
+    return np.argmax(dist_2)
 
 def smart_transfer_to_nearby(game, team, unit_id, unit, target_type_restriction=None, **kwarg):
     """
@@ -94,7 +97,6 @@ def smart_transfer_to_nearby(game, team, unit_id, unit, target_type_restriction=
     
     return TransferAction(team, unit_id, target_unit_id, resource_type, resource_amount)
 
-
 ########################################################################################################################
 # This is the Agent that you need to design for the competition
 ########################################################################################################################
@@ -130,6 +132,10 @@ class AgentPolicy(Agent):
 
         # Observation space: (Basic minimum for a miner agent)
         # Object:
+        #   1x is worker
+        #   1x is cart
+        #   1x is citytile
+        #
         #   5x direction_nearest_wood
         #   1x distance_nearest_wood
         #   1x amount
@@ -146,6 +152,8 @@ class AgentPolicy(Agent):
         #   1x distance_nearest_city
         #   1x amount of fuel
         #
+        #   28x (the same as above, but direction, distance, and amount to the furthest of each)
+        #
         #   5x direction_nearest_worker
         #   1x distance_nearest_worker
         #   1x amount of cargo
@@ -160,7 +168,7 @@ class AgentPolicy(Agent):
         #   1x research points [cur player]
         #   1x researched coal [cur player]
         #   1x researched uranium [cur player]
-        self.observation_shape = (7 * 5 + 1 + 1 + 1 + 2 + 2 + 2 + 3,)
+        self.observation_shape = (3 + 7 * 5 * 2 + 1 + 1 + 1 + 2 + 2 + 2 + 3,)
         self.observation_space = spaces.Box(low=0, high=1, shape=
         self.observation_shape, dtype=np.float16)
 
@@ -238,6 +246,9 @@ class AgentPolicy(Agent):
 
         # Observation space: (Basic minimum for a miner agent)
         # Object:
+        #   1x is worker
+        #   1x is cart
+        #   1x is citytile
         #   5x direction_nearest_wood
         #   1x distance_nearest_wood
         #   1x amount
@@ -257,6 +268,9 @@ class AgentPolicy(Agent):
         #   5x direction_nearest_worker
         #   1x distance_nearest_worker
         #   1x amount of cargo
+        #
+        #   28x (the same as above, but direction, distance, and amount to the furthest of each)
+        #
         # Unit:
         #   1x cargo size
         # State:
@@ -269,6 +283,21 @@ class AgentPolicy(Agent):
         #   1x researched coal [cur player]
         #   1x researched uranium [cur player]
         obs = np.zeros(self.observation_shape)
+        
+        # Update the type of this object
+        #   1x is worker
+        #   1x is cart
+        #   1x is citytile
+        observation_index = 0
+        if unit is not None:
+            if unit.type == Constants.UNIT_TYPES.WORKER:
+                obs[observation_index] = 1.0 # Worker
+            else:
+                obs[observation_index+1] = 1.0 # Cart
+        if city_tile is not None:
+            obs[observation_index+2] = 1.0 # CityTile
+        observation_index += 3
+        
         pos = None
         if unit is not None:
             pos = unit.pos
@@ -276,80 +305,82 @@ class AgentPolicy(Agent):
             pos = city_tile.pos
 
         if pos is None:
-            observation_index = 7 * 5
+            observation_index += 7 * 5 * 2
         else:
             # Encode the direction to the nearest objects
             #   5x direction_nearest
             #   1x distance
-            for key in [
-                Constants.RESOURCE_TYPES.WOOD,
-                Constants.RESOURCE_TYPES.COAL,
-                Constants.RESOURCE_TYPES.URANIUM,
-                "city",
-                str(Constants.UNIT_TYPES.WORKER)]:
-                # Process the direction to and distance to this object type
+            for distance_function in [closest_node, furthest_node]:
+                for key in [
+                    Constants.RESOURCE_TYPES.WOOD,
+                    Constants.RESOURCE_TYPES.COAL,
+                    Constants.RESOURCE_TYPES.URANIUM,
+                    "city",
+                    str(Constants.UNIT_TYPES.WORKER)]:
+                    # Process the direction to and distance to this object type
 
-                # Encode the direction to the nearest object (excluding itself)
-                #   5x direction
-                #   1x distance
-                if key in self.object_nodes:
-                    if (
-                            (key == "city" and city_tile is not None) or
-                            (unit is not None and unit.type == key)
-                    ):
-                        # Filter out the current unit from the closest-search
-                        closest_index = closest_node((pos.x, pos.y), self.object_nodes[key])
-                        filtered_nodes = np.delete(self.object_nodes[key], closest_index, axis=0)
-                    else:
-                        filtered_nodes = self.object_nodes[key]
+                    # Encode the direction to the nearest object (excluding itself)
+                    #   5x direction
+                    #   1x distance
+                    if key in self.object_nodes:
+                        if (
+                                (key == "city" and city_tile is not None) or
+                                (unit is not None and unit.type == key and len(get_cell_by_pos(unit.pos).units) <= 1 )
+                        ):
+                            # Filter out the current unit from the closest-search
+                            closest_index = closest_node((pos.x, pos.y), self.object_nodes[key])
+                            filtered_nodes = np.delete(self.object_nodes[key], closest_index, axis=0)
+                        else:
+                            filtered_nodes = self.object_nodes[key]
 
-                    if len(filtered_nodes) == 0:
-                        # No other object of this type
-                        obs[observation_index + 5] = 1.0
-                    else:
-                        # There is another object of this type
-                        closest_index = closest_node((pos.x, pos.y), filtered_nodes)
+                        if len(filtered_nodes) == 0:
+                            # No other object of this type
+                            obs[observation_index + 5] = 1.0
+                        else:
+                            # There is another object of this type
+                            closest_index = distance_function((pos.x, pos.y), filtered_nodes)
 
-                        if closest_index is not None and closest_index >= 0:
-                            closest = filtered_nodes[closest_index]
-                            closest_position = Position(closest[0], closest[1])
-                            direction = pos.direction_to(closest_position)
-                            mapping = {
-                                Constants.DIRECTIONS.CENTER: 0,
-                                Constants.DIRECTIONS.NORTH: 1,
-                                Constants.DIRECTIONS.WEST: 2,
-                                Constants.DIRECTIONS.SOUTH: 3,
-                                Constants.DIRECTIONS.EAST: 4,
-                            }
-                            obs[observation_index + mapping[direction]] = 1.0  # One-hot encoding direction
+                            if closest_index is not None and closest_index >= 0:
+                                closest = filtered_nodes[closest_index]
+                                closest_position = Position(closest[0], closest[1])
+                                direction = pos.direction_to(closest_position)
+                                mapping = {
+                                    Constants.DIRECTIONS.CENTER: 0,
+                                    Constants.DIRECTIONS.NORTH: 1,
+                                    Constants.DIRECTIONS.WEST: 2,
+                                    Constants.DIRECTIONS.SOUTH: 3,
+                                    Constants.DIRECTIONS.EAST: 4,
+                                }
+                                obs[observation_index + mapping[direction]] = 1.0  # One-hot encoding direction
 
-                            # 0 to 1 distance
-                            distance = pos.distance_to(closest_position)
-                            obs[observation_index + 5] = min(distance / 20.0, 1.0)
+                                # 0 to 1 distance
+                                distance = pos.distance_to(closest_position)
+                                obs[observation_index + 5] = min(distance / 20.0, 1.0)
 
-                            # 0 to 1 value (amount of resource, cargo for unit, or fuel for city)
-                            if key == "city":
-                                # City fuel
-                                obs[observation_index + 6] = min(
-                                    game.cities[game.map.get_cell_by_pos(closest_position).city_tile.city_id].fuel / 300,
-                                    1.0
-                                )
-                            elif key in [Constants.RESOURCE_TYPES.WOOD, Constants.RESOURCE_TYPES.COAL,
-                                         Constants.RESOURCE_TYPES.URANIUM]:
-                                # Resource amount
-                                obs[observation_index + 6] = min(
-                                    game.map.get_cell_by_pos(closest_position).resource.amount / 500,
-                                    1.0
-                                )
-                            else:
-                                # Unit cargo
-                                obs[observation_index + 6] = min(
-                                    next(iter(game.map.get_cell_by_pos(
-                                        closest_position).units.values())).get_cargo_space_left() / 100,
-                                    1.0
-                                )
+                                # 0 to 1 value (amount of resource, cargo for unit, or fuel for city)
+                                if key == "city":
+                                    # City fuel as % of upkeep for 200 turns
+                                    c = game.cities[game.map.get_cell_by_pos(closest_position).city_tile.city_id]
+                                    obs[observation_index + 6] = min(
+                                        c.fuel / (c.get_light_upkeep() * 200.0),
+                                        1.0
+                                    )
+                                elif key in [Constants.RESOURCE_TYPES.WOOD, Constants.RESOURCE_TYPES.COAL,
+                                             Constants.RESOURCE_TYPES.URANIUM]:
+                                    # Resource amount
+                                    obs[observation_index + 6] = min(
+                                        game.map.get_cell_by_pos(closest_position).resource.amount / 500,
+                                        1.0
+                                    )
+                                else:
+                                    # Unit cargo
+                                    obs[observation_index + 6] = min(
+                                        next(iter(game.map.get_cell_by_pos(
+                                            closest_position).units.values())).get_cargo_space_left() / 100,
+                                        1.0
+                                    )
 
-                observation_index += 7
+                    observation_index += 7
 
         if unit is not None:
             # Encode the cargo space
@@ -464,7 +495,8 @@ class AgentPolicy(Agent):
                     city_tile_count_opponent += 1
 
         # Give a reward each turn for each tile and unit alive each turn
-        reward_state = city_tile_count * 0.01 + unit_count * 0.001 + research_points * 0.0001
+        #reward_state = city_tile_count * 0.01 + unit_count * 0.001 + research_points * 0.00001
+        reward_state = city_tile_count * 0.01 + unit_count * 0.001
 
         if is_game_finished:
             # Give a bigger reward for end-of-game unit and city count
@@ -522,3 +554,4 @@ class AgentPolicy(Agent):
                   file=sys.stderr)
 
         return actions
+
