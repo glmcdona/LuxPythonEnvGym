@@ -110,9 +110,9 @@ class AgentFromStdInOut(Agent):
 
             if message == "D_DONE":  # End of turn data marker
                 break
-
+        
         # Reset the game to the specified state
-        game.reset(updates=updates)
+        game.reset(updates=updates, increment_turn=True)
 
     def post_turn(self, game, actions) -> bool:
         """
