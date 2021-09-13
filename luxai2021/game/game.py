@@ -28,13 +28,14 @@ class Game:
         self.reset()
         self.log_file = None
 
-    def reset(self, updates=None):
+    def reset(self, updates=None, increment_turn=False):
         """
         Resets the game for another game.
         Updates are optionally a list of command messages from the kaggle controller
         that defines the state of the game to reset the game to. This gets sent from
         the kaggle server to our engine each turn.
         :param updates:
+        :param increment_turn: Prevents resettig of turn count, and increments it by 1.
         """
         self.global_city_id_count = 0
         self.global_unit_id_count = 0
@@ -69,8 +70,14 @@ class Game:
                 },
             },
         }
+
+        # Option to keep game state turn number, and increment it.
+        turn = 0
+        if increment_turn:
+            turn = self.state["turn"] + 1
+
         self.state = {
-            "turn": 0,
+            "turn": turn,
             "teamStates": {
                 Constants.TEAM.A: {
                     "researchPoints": 0,
