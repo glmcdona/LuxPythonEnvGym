@@ -63,7 +63,7 @@ def get_command_line_arguments():
     parser.add_argument('--learning_rate', help='Learning rate', type=float, default=0.001)
     parser.add_argument('--gamma', help='Gamma', type=float, default=0.995)
     parser.add_argument('--gae_lambda', help='GAE Lambda', type=float, default=0.95)
-    parser.add_argument('--batch_size', help='batch_size', type=float, default=2048)  # 64
+    parser.add_argument('--batch_size', help='batch_size', type=int, default=2048)  # 64
     parser.add_argument('--step_count', help='Total number of steps to train', type=int, default=10000000)
     args = parser.parse_args()
 
