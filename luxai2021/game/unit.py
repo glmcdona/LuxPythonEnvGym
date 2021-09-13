@@ -48,6 +48,17 @@ class Unit(Actionable):
         else:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"] - space_used
 
+    def get_cargo_fuel_value(self):
+        """
+        Returns the fuel-value of all the cargo this unit has.
+        """
+        return (
+            self.cargo["wood"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["WOOD"] +
+            self.cargo["coal"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["COAL"] +
+            self.cargo["uranium"] * self.configs["parameters"]["RESOURCE_TO_FUEL_RATE"]["URANIUM"]
+        )
+
+
     def spend_fuel_to_survive(self):
         """
         Implements /src/Unit/index.ts -> Unit.spendFuelToSurvive()
