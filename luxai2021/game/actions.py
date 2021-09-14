@@ -77,7 +77,7 @@ class MoveAction(Action):
             moves = {}
             for action in actions_validated:
                 if action.action == Constants.ACTIONS.MOVE:
-                    moves[action.unit_id] = game.get_unit(self.team, action.unit_id).pos.translate(action.direction, 1)
+                    moves[action.unit_id] = game.get_unit(action.team, action.unit_id).pos.translate(action.direction, 1)
 
             # Get potential collision units from our team
             for c in adjacent_cells:
