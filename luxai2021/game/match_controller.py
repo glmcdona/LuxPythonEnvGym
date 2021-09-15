@@ -36,6 +36,9 @@ class MatchController:
             # Initialize agent
             agent.set_team(i)
             agent.set_controller(self)
+        
+        # Reset the agents, without resetting the game
+        self.reset(reset_game=False)
 
         if self.training_agent_count > 1:
             raise ValueError("At most one agent must be trainable.")
@@ -46,7 +49,7 @@ class MatchController:
         elif self.training_agent_count == 0:
             print("Running in inference-only mode.", file=sys.stderr)
 
-    def reset(self):
+    def reset(self, reset_game=True):
         """
 
         :return:
@@ -56,8 +59,9 @@ class MatchController:
         self.agents[0].set_team(r)
         self.agents[1].set_team((r + 1) % 2)
 
-        # Reset the game
-        self.game.reset()
+        # Reset the game as well if needed
+        if reset_game:
+            self.game.reset()
         self.action_buffer = []
 
         # Call the agent game_start() callbacks
