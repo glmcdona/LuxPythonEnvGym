@@ -12,6 +12,18 @@ class Agent:
         """
         self.team = None
         self.match_controller = None
+    
+    def game_start(self, game):
+        """
+        This funciton is called at the start of each game. Use this to
+        reset and initialize per game. Note that self.team may have
+        been changed since last game. The game map has been created
+        and starting units placed.
+
+        Args:
+            game ([type]): Game.
+        """
+        pass
 
     def process_turn(self, game, team):
         """
