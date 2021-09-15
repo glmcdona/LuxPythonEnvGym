@@ -60,6 +60,10 @@ class MatchController:
         self.game.reset()
         self.action_buffer = []
 
+        # Call the agent game_start() callbacks
+        for agent in self.agents:
+            agent.game_start(self.game)
+
     def take_action(self, action):
         """
          Adds the specified action to the action buffer
