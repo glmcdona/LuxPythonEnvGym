@@ -109,10 +109,11 @@ class MatchController:
             Returns: tuple describing the unit who's control decision is for (unit_id, city, team, is new turn)
         """
         game_over = False
+        is_first_turn = True
         while not game_over:
             # Run pre-turn agent events to allow for them to handle running the turn instead (used in a kaggle submission agent)
             for agent in self.agents:
-                agent.pre_turn(self.game)
+                agent.pre_turn(self.game, is_first_turn)
 
             # Process this turn
             for agent in self.agents:
@@ -145,6 +146,8 @@ class MatchController:
                                     new_turn = False
 
                     time_taken = time.time() - start_time
+            
+            is_first_turn = False
 
             # Now let the game actually process the requested actions and play the turn
             try:
