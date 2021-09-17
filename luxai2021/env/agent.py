@@ -34,7 +34,7 @@ class Agent:
         """
         return []
 
-    def pre_turn(self, game):
+    def pre_turn(self, game, is_first_turn=False):
         """
         Called before a turn starts. Allows for modifying the game environment.
         Generally only used in kaggle submission opponents.
@@ -85,7 +85,7 @@ class AgentFromStdInOut(Agent):
         self.initialized_player = False
         self.initialized_map = False
 
-    def pre_turn(self, game):
+    def pre_turn(self, game, is_first_turn=False):
         """
         Called before a turn starts. Allows for modifying the game environment.
         Generally only used in kaggle submission opponents.
@@ -123,8 +123,8 @@ class AgentFromStdInOut(Agent):
             if message == "D_DONE":  # End of turn data marker
                 break
         
-        # Reset the game to the specified state
-        game.reset(updates=updates, increment_turn=True)
+        # Reset the game to the specified state. Don't increment turn counter on first turn of game.
+        game.reset(updates=updates, increment_turn=not is_first_turn)
 
     def post_turn(self, game, actions) -> bool:
         """
