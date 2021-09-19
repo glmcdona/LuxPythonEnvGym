@@ -66,6 +66,7 @@ def get_command_line_arguments():
     parser.add_argument('--batch_size', help='batch_size', type=int, default=2048)  # 64
     parser.add_argument('--step_count', help='Total number of steps to train', type=int, default=10000000)
     parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int, default=2048*8)
+    parser.add_argument('--path', help='Path to a checkpoint to load to resume training', type=str, default=None)
     args = parser.parse_args()
 
     return args
@@ -99,16 +100,22 @@ def train(args):
                                                      opponent_agent=opponent), i) for i in range(num_cpu)])
     run_id = args.id
     print("Run id %s" % run_id)
-    model = PPO("MlpPolicy",
-                env,
-                verbose=1,
-                tensorboard_log="./lux_tensorboard/",
-                learning_rate=args.learning_rate,
-                gamma=args.gamma,
-                gae_lambda=args.gae_lambda,
-                batch_size=args.batch_size,
-                n_steps=args.n_steps
-                )
+
+    if args.path:
+        # by default previous model params are used (lr, batch size, gamma...)
+        model = PPO.load(args.path)
+        model.set_env(env=env)
+    else:
+        model = PPO("MlpPolicy",
+                    env,
+                    verbose=1,
+                    tensorboard_log="./lux_tensorboard/",
+                    learning_rate=args.learning_rate,
+                    gamma=args.gamma,
+                    gae_lambda=args.gae_lambda,
+                    batch_size=args.batch_size,
+                    n_steps=args.n_steps
+                    )
 
     print("Training model...")
     # Save a checkpoint every 1M steps
