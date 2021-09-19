@@ -2,9 +2,9 @@ import time
 from unittest import TestCase
 
 from luxai2021.game.actions import MoveAction
-from ..game.constants import Constants
-from ..game.game import Game
-from ..game.game_constants import GAME_CONSTANTS
+from luxai2021.game.constants import Constants
+from luxai2021.game.game import Game
+from luxai2021.game.game_constants import GAME_CONSTANTS
 
 
 class TestMap(TestCase):
