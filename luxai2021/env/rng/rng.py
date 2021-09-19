@@ -10,7 +10,4 @@ def get_n_values(seed, N=100):
     # p.stdin.write(str(seed).encode())
     output = p.stdout.readline()
     vals = [float(v) for v in output.decode().split(",")]
-    p.stdout.close()
-    p.kill()
-    p.wait()
     return vals

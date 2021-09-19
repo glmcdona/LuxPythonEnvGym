@@ -7,4 +7,3 @@ for (let i = 0; i < N; i++) {
   vals.push(rng());
 }
 process.stdout.write(vals.join(","));
-process.exit()
