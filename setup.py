@@ -17,7 +17,7 @@ setup(
         "tensorboard",
         "gym"
     ],
-    package_data={'luxai2021': ['game/game_constants.json']},
+    package_data={'luxai2021': ['game/game_constants.json', 'env/rng/rng.js', 'env/rng/seedrandom.js']},
     test_suite='nose2.collector.collector',
     tests_require=['nose2'],
 )
