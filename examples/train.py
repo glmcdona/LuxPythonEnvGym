@@ -6,7 +6,7 @@ from typing import Callable
 
 from stable_baselines3 import PPO  # pip install stable-baselines3
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from agent_policy import AgentPolicy
@@ -105,6 +105,11 @@ def train(args):
         # by default previous model params are used (lr, batch size, gamma...)
         model = PPO.load(args.path)
         model.set_env(env=env)
+
+        # Update the learning rate
+        model.lr_schedule = get_schedule_fn(args.learning_rate)
+
+        # TODO: Update other training parameters
     else:
         model = PPO("MlpPolicy",
                     env,
