@@ -109,19 +109,19 @@ class TestMap(TestCase):
         with open(f"{os.path.dirname(__file__)}/testmaps.json", "r") as f:
             all_map_gt = json.load(f)
         for seed in all_map_gt.keys():
+            # if int(seed) < 10000: continue
             LuxMatchConfigs = {
                 "seed": seed,
             }
 
             game = Game(LuxMatchConfigs)
-            print(seed)
             
             map_gt = all_map_gt[seed]
             try:
                 assert len(map_gt) == game.map.height
                 assert len(map_gt[0]) == game.map.width
             except:
-                print(f"Map dimensions mismatch. Groundtruth {len(map_gt)} x {len(map_gt[0])}. Generated {game.map.height} x {game.map.width}")
+                print(f"Map dimensions mismatch. Seed {seed}. Groundtruth {len(map_gt)} x {len(map_gt[0])}. Generated {game.map.height} x {game.map.width}")
                 assert False
             for x in range(game.map.width):
                 for y in range(game.map.height):
@@ -134,11 +134,11 @@ class TestMap(TestCase):
                             assert map_gt[y][x]["resource"] == None
                         assert cell.is_city_tile() == map_gt[y][x]["citytile"]
                     except:
-                        print(f"Map mismatch at ({x}, {y})")
+                        print(f"Map mismatch at ({x}, {y}). Seed {seed}")
                         print("Groundtruth", map_gt[y][x])
                         resource_info = None
                         if cell.has_resource():
-                            resource_info = cell.resource
+                            resource_info = {"resource": {"type": cell.resource.type, "amount": cell.resource.amount}}
                         print("Generated", resource_info, f"Is CT: {cell.is_city_tile()}")
                         assert False
         return True

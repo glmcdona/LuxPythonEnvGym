@@ -61,11 +61,23 @@ class GameMap:
         Implements /src/Game/gen.ts
         :param game:
         """
+        
+        def js_rng(seed):
+            idx = 0
+            rng_values = get_n_values(seed, N=10000)
+            def _rng():
+                nonlocal idx
+                ret = rng_values[idx]
+                idx += 1
+                return ret
+            return Namespace(**dict(random=_rng))
+        
+
         if self.configs["seed"] is not None:
             seed = self.configs["seed"]
-            rng = random.Random(seed)
+            rng = js_rng(seed)
         else:
-            rng = random.Random()
+            rng = js_rng(math.floor(random.random() * 1e9))
 
         size = mapSizes[math.floor(rng.random() * len(mapSizes))]
         if "width" not in self.configs:
