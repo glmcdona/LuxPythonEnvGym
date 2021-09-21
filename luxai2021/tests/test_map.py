@@ -1,11 +1,11 @@
 import time
 from unittest import TestCase
-
+import json
+import os
 from luxai2021.game.actions import MoveAction
 from ..game.constants import Constants
 from ..game.game import Game
 from ..game.game_constants import GAME_CONSTANTS
-
 
 class TestMap(TestCase):
     def test_gen_game(self):
@@ -102,6 +102,45 @@ class TestMap(TestCase):
             gameOver = game.run_turn_with_actions([])
         print(game.map.get_map_string())
 
+        return True
+
+    def test_map_gen_valid(self):
+        print("Testing game map validity against 100 seeds")
+        with open(f"{os.path.dirname(__file__)}/testmaps.json", "r") as f:
+            all_map_gt = json.load(f)
+        for seed in all_map_gt.keys():
+            # if int(seed) < 10000: continue
+            LuxMatchConfigs = {
+                "seed": seed,
+            }
+
+            game = Game(LuxMatchConfigs)
+            
+            map_gt = all_map_gt[seed]
+            try:
+                assert len(map_gt) == game.map.height
+                assert len(map_gt[0]) == game.map.width
+            except:
+                print(f"Map dimensions mismatch. Seed {seed}. Groundtruth {len(map_gt)} x {len(map_gt[0])}. Generated {game.map.height} x {game.map.width}")
+                assert False
+            for x in range(game.map.width):
+                for y in range(game.map.height):
+                    cell = game.map.get_cell(x, y)
+                    try:
+                        if cell.has_resource():
+                            assert cell.resource.amount == map_gt[y][x]["resource"]["amount"]
+                            assert cell.resource.type == map_gt[y][x]["resource"]["type"]
+                        else:
+                            assert map_gt[y][x]["resource"] == None
+                        assert cell.is_city_tile() == map_gt[y][x]["citytile"]
+                    except:
+                        print(f"Map mismatch at ({x}, {y}). Seed {seed}")
+                        print("Groundtruth", map_gt[y][x])
+                        resource_info = None
+                        if cell.has_resource():
+                            resource_info = {"resource": {"type": cell.resource.type, "amount": cell.resource.amount}}
+                        print("Generated", resource_info, f"Is CT: {cell.is_city_tile()}")
+                        assert False
         return True
 
     def test_gen_game_seed(self):
