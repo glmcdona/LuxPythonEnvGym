@@ -22,6 +22,7 @@ Install luxai2021 environment package by running the installer:
 
 ```python setup.py install```
 
+You will need Node.js version 12 or above: [here](https://nodejs.org/en/download/)
 
 ## Example python ML training
 Create your own agent logic, observations, actions, and rewards by modifying this example:
