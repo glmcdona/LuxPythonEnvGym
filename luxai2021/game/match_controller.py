@@ -11,6 +11,65 @@ class GameStepFailedException(Exception):
     pass
 
 
+class ActionSequence():
+    def __init__(self, actions, unit_id, citytile, **kwarg):
+        """
+        Defines a sequence of actions, to be taken each time the unit or city can next move.
+
+        Example usage of constructor:
+            sequence = ActionSequence(
+                actions=[
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                ],
+                game=game,
+                unit_id=unit.id if unit else None,
+                unit=unit,
+                city_id=city_tile.city_id if city_tile else None,
+                citytile=city_tile,
+                team=team,
+                x=x,
+                y=y
+            )
+            match_controller.take_action(sequence)
+        
+        Example usage as part of the template agent_policy.py action space:
+            self.actionSpaceMap = [
+                partial(MoveAction, direction=Constants.DIRECTIONS.CENTER),  # This is the do-nothing action
+                partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                partial(MoveAction, direction=Constants.DIRECTIONS.WEST),
+                partial(MoveAction, direction=Constants.DIRECTIONS.SOUTH),
+                partial(MoveAction, direction=Constants.DIRECTIONS.EAST),
+                partial(ActionSequence, actions=[
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                    partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
+                ]),
+                ...
+            ]
+        
+        You can override this class with more complex logic, eg sequences
+        like 'move to nearest city'
+        """
+        self.actions = list(actions)
+        self.unit_id = unit_id
+        self.citytile = citytile
+        self.kwarg = kwarg
+    
+    def get_next_action(self):
+        # Construct the next action. Note: x and y may be wrong since they may have changed
+        # TODO: Fix x and y if doing citytile actions or build city action.
+        return self.actions.pop(0)(unit_id=self.unit_id, citytile=self.citytile, **self.kwarg)
+    
+    def is_done(self):
+        return len(self.actions) == 0
+
+
 class MatchController:
     def __init__(self, game, agents=[None, None]) -> None:
         """
@@ -59,6 +118,9 @@ class MatchController:
         self.agents[0].set_team(r)
         self.agents[1].set_team((r + 1) % 2)
 
+        # Reset action sequences
+        self.action_sequences = {}
+
         # Reset the game as well if needed
         if reset_game:
             self.game.reset()
@@ -73,6 +135,20 @@ class MatchController:
          Adds the specified action to the action buffer
          """
         if action is not None:
+            # Check if this is an action sequence
+            if issubclass(type(action), ActionSequence) or isinstance(action, ActionSequence):
+                # Add this action sequence and pop the first index off
+                sequence = action
+                if sequence.is_done():
+                    return
+                action = sequence.get_next_action()
+
+                if not sequence.is_done():
+                    if sequence.unit_id != None:
+                        self.action_sequences[sequence.unit_id] = sequence
+                    elif sequence.citytile != None:
+                        self.action_sequences[sequence.citytile] = sequence
+
             # Validate the action
             if action.is_valid(self.game, self.action_buffer):
                 # Add the action
@@ -118,6 +194,19 @@ class MatchController:
             # Process this turn
             for agent in self.agents:
                 if agent.get_agent_type() == Constants.AGENT_TYPE.AGENT:
+                    # Process any pending action sequences
+                    for id in list(self.action_sequences.keys()):
+                        sequence = self.action_sequences[id]
+                        if (
+                                id in self.game.state["teamStates"][agent.team]["units"] and
+                                self.game.state["teamStates"][agent.team]["units"][id].can_act()
+                            ):
+                            # Continue the action sequence for this unit automatically
+                            self.take_action(sequence.get_next_action())
+                            if sequence.is_done():
+                                self.action_sequences.pop(unit.id)
+                        # TODO: Handle city action sequences
+                    
                     # Call the agent for the set of actions
                     actions = agent.process_turn(self.game, agent.team)
                     self.take_actions(actions)
@@ -129,10 +218,18 @@ class MatchController:
                     units = self.game.state["teamStates"][agent.team]["units"].values()
                     for unit in units:
                         if unit.can_act():
-                            # RL training agent that is controlling the simulation
-                            # The enviornment then handles this unit, and calls take_action() to buffer a requested action
-                            yield unit, None, unit.team, new_turn
-                            new_turn = False
+                            if unit.id not in self.action_sequences:
+                                # RL training agent that is controlling the simulation
+                                # The enviornment then handles this unit, and calls take_action() to buffer a requested action
+                                yield unit, None, unit.team, new_turn
+                                new_turn = False
+                            else:
+                                # Continue the action sequence for this unit automatically
+                                sequence = self.action_sequences[unit.id]
+                                self.take_action(sequence.get_next_action())
+                                if sequence.is_done():
+                                    self.action_sequences.pop(unit.id)
+                            
 
                     cities = self.game.cities.values()
                     for city in cities:
@@ -140,10 +237,17 @@ class MatchController:
                             for cell in city.city_cells:
                                 city_tile = cell.city_tile
                                 if city_tile.can_act():
-                                    # RL training agent that is controlling the simulation
-                                    # The enviornment then handles this city, and calls take_action() to buffer a requested action
-                                    yield None, city_tile, city_tile.team, new_turn
-                                    new_turn = False
+                                    if city_tile not in self.action_sequences:
+                                        # RL training agent that is controlling the simulation
+                                        # The enviornment then handles this city, and calls take_action() to buffer a requested action
+                                        yield None, city_tile, city_tile.team, new_turn
+                                        new_turn = False
+                                    else:
+                                        # Continue the action sequence for this unit automatically
+                                        sequence = self.action_sequences[city_tile]
+                                        self.take_action(sequence.get_next_action())
+                                        if sequence.is_done():
+                                            self.action_sequences.pop(city_tile)
 
                     time_taken = time.time() - start_time
             
