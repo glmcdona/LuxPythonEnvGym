@@ -530,9 +530,9 @@ class GameMap:
             row = self.get_row(y)
             for cell in row:
                 if cell.has_units():
+                    unit = list(cell.units.values())[0]
                     if len(cell.units) == 1:
                         unit_str = '?'
-                        unit = list(cell.units.values())[0]
                         if unit.type == Constants.UNIT_TYPES.CART:
                             unit_str = 'c'
                         elif unit.type == Constants.UNIT_TYPES.WORKER:
