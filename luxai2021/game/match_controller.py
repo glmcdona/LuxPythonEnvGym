@@ -1,3 +1,4 @@
+from luxai2021.game.city import CityTile
 import random
 import sys
 import time
@@ -191,25 +192,43 @@ class MatchController:
             for agent in self.agents:
                 agent.pre_turn(self.game, is_first_turn)
 
+            # Process any pending action sequences
+            for id in list(self.action_sequences.keys()):
+                sequence = self.action_sequences[id]
+                actionable = None
+                if id in self.game.state["teamStates"][0]["units"]:
+                    actionable = self.game.state["teamStates"][0]["units"][id]
+                elif id in self.game.state["teamStates"][1]["units"]:
+                    actionable = self.game.state["teamStates"][1]["units"][id]
+                elif isinstance(id, CityTile):
+                    # Validate the city still exists
+                    if id.city_id in self.game.cities:
+                        actionable = id
+                else:
+                    # The unit must no longer exist
+                    pass
+
+                if actionable != None and actionable.can_act():
+                    # Continue the action sequence for this unit automatically
+                    self.take_action(sequence.get_next_action())
+
+                    # Instruct the game that this unit has acted already this turn
+                    actionable.set_can_act_override(False)
+
+                    if sequence.is_done():
+                        self.action_sequences.pop(id)
+                elif actionable == None:
+                    # Delete the action sequence, the object isn't valid anymore
+                    self.action_sequences.pop(id)
+                
+
             # Process this turn
             for agent in self.agents:
                 if agent.get_agent_type() == Constants.AGENT_TYPE.AGENT:
-                    # Process any pending action sequences
-                    for id in list(self.action_sequences.keys()):
-                        sequence = self.action_sequences[id]
-                        if (
-                                id in self.game.state["teamStates"][agent.team]["units"] and
-                                self.game.state["teamStates"][agent.team]["units"][id].can_act()
-                            ):
-                            # Continue the action sequence for this unit automatically
-                            self.take_action(sequence.get_next_action())
-                            if sequence.is_done():
-                                self.action_sequences.pop(unit.id)
-                        # TODO: Handle city action sequences
-                    
                     # Call the agent for the set of actions
                     actions = agent.process_turn(self.game, agent.team)
                     self.take_actions(actions)
+
                 elif agent.get_agent_type() == Constants.AGENT_TYPE.LEARNING:
                     # Yield the game to make a decision, since the learning environment is the function caller
                     new_turn = True
@@ -218,17 +237,10 @@ class MatchController:
                     units = self.game.state["teamStates"][agent.team]["units"].values()
                     for unit in units:
                         if unit.can_act():
-                            if unit.id not in self.action_sequences:
-                                # RL training agent that is controlling the simulation
-                                # The enviornment then handles this unit, and calls take_action() to buffer a requested action
-                                yield unit, None, unit.team, new_turn
-                                new_turn = False
-                            else:
-                                # Continue the action sequence for this unit automatically
-                                sequence = self.action_sequences[unit.id]
-                                self.take_action(sequence.get_next_action())
-                                if sequence.is_done():
-                                    self.action_sequences.pop(unit.id)
+                            # RL training agent that is controlling the simulation
+                            # The enviornment then handles this unit, and calls take_action() to buffer a requested action
+                            yield unit, None, unit.team, new_turn
+                            new_turn = False
                             
 
                     cities = self.game.cities.values()
@@ -237,20 +249,21 @@ class MatchController:
                             for cell in city.city_cells:
                                 city_tile = cell.city_tile
                                 if city_tile.can_act():
-                                    if city_tile not in self.action_sequences:
-                                        # RL training agent that is controlling the simulation
-                                        # The enviornment then handles this city, and calls take_action() to buffer a requested action
-                                        yield None, city_tile, city_tile.team, new_turn
-                                        new_turn = False
-                                    else:
-                                        # Continue the action sequence for this unit automatically
-                                        sequence = self.action_sequences[city_tile]
-                                        self.take_action(sequence.get_next_action())
-                                        if sequence.is_done():
-                                            self.action_sequences.pop(city_tile)
+                                    # RL training agent that is controlling the simulation
+                                    # The enviornment then handles this city, and calls take_action() to buffer a requested action
+                                    yield None, city_tile, city_tile.team, new_turn
+                                    new_turn = False
 
                     time_taken = time.time() - start_time
             
+            # Reset the can_act overrides for all units and city_tiles
+            units = self.game.state["teamStates"][agent.team]["units"].values()
+            for unit in units:
+                unit.set_can_act_override(None)
+            for city in self.game.cities.values():
+                for cell in city.city_cells:
+                    city_tile = cell.city_tile.set_can_act_override(None)
+
             is_first_turn = False
 
             # Now let the game actually process the requested actions and play the turn

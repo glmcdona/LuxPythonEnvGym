@@ -31,6 +31,7 @@ class Unit(Actionable):
         self.type = unit_type
         self.id = "u_%i" % idcount
         self.cargo = cargo
+        self.can_act_override = None
 
     def is_worker(self) -> bool:
         return self.type == UNIT_TYPES.WORKER
@@ -105,42 +106,6 @@ class Unit(Actionable):
             "CITY_BUILD_COST"]:
             return True
         return False
-
-    def can_act(self) -> bool:
-        """
-        whether or not the unit can move or not. This does not check for potential collisions into other units or enemy cities
-        """
-        return self.cooldown < 1
-
-    '''
-    def move(self, dir) -> str:
-        """
-        return the command to move unit in the given direction
-        """
-        # TODO: Implement this action effect!
-        return "m {} {}".format(self.id, dir)
-
-    def transfer(self, dest_id, resourceType, amount) -> str:
-        """
-        return the command to transfer a resource from a source unit to a destination unit as specified by their ids
-        """
-        # TODO: Implement this action effect!
-        return "t {} {} {} {}".format(self.id, dest_id, resourceType, amount)
-
-    def build_city(self) -> str:
-        """
-        return the command to build a city right under the worker
-        """
-        # TODO: Implement this action effect!
-        return "bcity {}".format(self.id)
-
-    def pillage(self) -> str:
-        """
-        return the command to pillage whatever is underneath the worker
-        """
-        # TODO: Implement this action effect!
-        return "p {}".format(self.id)
-    '''
 
 
 class Cargo:
