@@ -82,14 +82,16 @@ class GameMap:
             rng = js_rng(math.floor(random.random() * 1e9))
 
         size = mapSizes[math.floor(rng.random() * len(mapSizes))]
-        if "width" not in self.configs:
-            self.configs["width"] = size
 
-        if "height" not in self.configs:
-            self.configs["height"] = size
-
-        self.width = self.configs["width"]
-        self.height = self.configs["height"]
+        if "width" in self.configs:
+            self.width = self.configs["width"]
+        else:
+            self.width = size
+        
+        if "height" in self.configs:
+            self.height = self.configs["height"]
+        else:
+            self.height = size
 
         # Create map tiles
         self.map: List[List[Cell]] = [None] * self.height
