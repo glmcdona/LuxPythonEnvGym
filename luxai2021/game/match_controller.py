@@ -257,13 +257,14 @@ class MatchController:
                     time_taken = time.time() - start_time
             
             # Reset the can_act overrides for all units and city_tiles
-            units = self.game.state["teamStates"][agent.team]["units"].values()
+            units = self.game.state["teamStates"][0]["units"].values() +
+                self.game.state["teamStates"][1]["units"].values()
             for unit in units:
                 unit.set_can_act_override(None)
             for city in self.game.cities.values():
                 for cell in city.city_cells:
                     city_tile = cell.city_tile.set_can_act_override(None)
-
+            
             is_first_turn = False
 
             # Now let the game actually process the requested actions and play the turn
