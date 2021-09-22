@@ -66,7 +66,7 @@ class GameMap:
         
         def js_rng(seed):
             idx = 0
-            rng_values = get_n_values(seed, N=10000)
+            rng_values = get_n_values(seed, N=1000000)
             def _rng():
                 nonlocal idx
                 ret = rng_values[idx]
