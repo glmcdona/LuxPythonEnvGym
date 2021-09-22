@@ -22,6 +22,7 @@ Install luxai2021 environment package by running the installer:
 
 ```python setup.py install```
 
+You will need Node.js version 12 or above: [here](https://nodejs.org/en/download/)
 
 ## Example python ML training
 Create your own agent logic, observations, actions, and rewards by modifying this example:
@@ -57,7 +58,7 @@ Either view the above kaggle example or prepare a submission yourself:
 ## Creating and viewing a replay
 Place your trained model file as `model.zip` and your agent file `agent_policy.py` in the `./kaggle_submissions/` folder. Then run a command like the following from that directory:
 
-`lux-ai-2021 --seed=100 ./kaggle_submissions/main_lux-ai-2021.py ./kaggle_submissions/main_lux-ai-2021.py --maxtime 10000`
+`lux-ai-2021 --seed=100 ./kaggle_submissions/main_lux-ai-2021.py ./kaggle_submissions/main_lux-ai-2021.py --maxtime 100000`
 
 This will battle your agent against itself and produce a replay match. You can view the replay here:
 https://2021vis.lux-ai.org/
