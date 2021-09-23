@@ -22,7 +22,7 @@ class Game:
         :param agents:
         """
         # Initializations from src/Game/index.ts -> Game()
-        self.configs = LuxMatchConfigs_Default
+        self.configs = dict(LuxMatchConfigs_Default) # Shallow copy
         self.configs.update(configs)  # Override default config from specified config
         self.agents = []
         self.reset()
