@@ -76,10 +76,12 @@ class GameMap:
         
 
         if self.configs["seed"] is not None:
+            # Use a random number generator that exactly matches LuxAI. That way
+            # the same seeds generate the exact same map.
             seed = self.configs["seed"]
             rng = js_rng(seed)
         else:
-            rng = js_rng(math.floor(random.random() * 1e9))
+            rng = random.Random()
 
         size = mapSizes[math.floor(rng.random() * len(mapSizes))]
 
