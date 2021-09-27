@@ -104,6 +104,10 @@ class Game:
         self.map = GameMap(self.configs)
         self.map.generate_map(self)
 
+        self.process_updates(updates)
+
+    def process_updates(self, updates, assign=True):
+
         if updates is not None:
             # Loop through updating the game from the list of updates
             # Implements /kits/python/simple/lux/game.py -> _update()
@@ -115,20 +119,34 @@ class Game:
                 input_identifier = strings[0]
                 if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
                     team = int(strings[1])
-                    self.state["teamStates"][team]["researchPoints"] = int(strings[2])
+                    if assign:
+                        self.state["teamStates"][team]["researchPoints"] = int(strings[2])
+                    else:
+                        assert self.state["teamStates"][team]["researchPoints"] == int(strings[2])
 
                     if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
-                        self.state["teamStates"][team]["researched"]["coal"] = True
+                        if assign:
+                            self.state["teamStates"][team]["researched"]["coal"] = True
+                        else:
+                            assert self.state["teamStates"][team]["researched"]["coal"] == True
 
                     if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
-                        self.state["teamStates"][team]["researched"]["uranium"] = True
+                        if assign:
+                            self.state["teamStates"][team]["researched"]["uranium"] = True
+                        else:
+                            assert self.state["teamStates"][team]["researched"]["uranium"] == True
 
                 elif input_identifier == INPUT_CONSTANTS.RESOURCES:
                     r_type = strings[1]
                     x = int(strings[2])
                     y = int(strings[3])
                     amt = int(float(strings[4]))
-                    self.map.add_resource(x, y, r_type, amt)
+                    if assign:
+                        self.map.add_resource(x, y, r_type, amt)
+                    else:
+                        cell = self.map.get_cell(x, y)
+                        assert cell.resource.amount == amt
+                        assert cell.resource.type == r_type 
 
                 elif input_identifier == INPUT_CONSTANTS.UNITS:
                     unit_type = int(strings[1])
@@ -140,19 +158,26 @@ class Game:
                     wood = int(strings[7])
                     coal = int(strings[8])
                     uranium = int(strings[9])
-                    if unit_type == Constants.UNIT_TYPES.WORKER:
-                        self.spawn_worker(team, x, y, unit_id, cooldown=cooldown,
-                                          cargo={"wood": wood, "uranium": uranium, "coal": coal})
-                    elif unit_type == Constants.UNIT_TYPES.CART:
-                        self.spawn_cart(team, x, y, unit_id, cooldown=cooldown,
-                                        cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                    if assign:
+                        if unit_type == Constants.UNIT_TYPES.WORKER:
+                            self.spawn_worker(team, x, y, unit_id, cooldown=cooldown,
+                                            cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                        elif unit_type == Constants.UNIT_TYPES.CART:
+                            self.spawn_cart(team, x, y, unit_id, cooldown=cooldown,
+                                            cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                    else:
+                        cell = self.map.get_cell(x, y)
+                        assert len(cell.units) > 0
 
                 elif input_identifier == INPUT_CONSTANTS.CITY:
                     team = int(strings[1])
                     city_id = strings[2]
                     fuel = float(strings[3])
                     light_upkeep = float(strings[4])  # Unused
-                    self.cities[city_id] = City(team, self.configs, None, city_id, fuel)
+                    if assign:
+                        self.cities[city_id] = City(team, self.configs, None, city_id, fuel)
+                    else:
+                        assert city_id in self.cities
 
                 elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
                     team = int(strings[1])
@@ -162,16 +187,24 @@ class Game:
                     cooldown = float(strings[5])
                     city = self.cities[city_id]
                     cell = self.map.get_cell(x, y)
-                    cell.set_city_tile(team, city_id, cooldown)
-                    city.add_city_tile(cell)
-
-                    self.stats["teamStats"][team]["cityTilesBuilt"] += 1
+                    if assign:
+                        cell.set_city_tile(team, city_id, cooldown)
+                        city.add_city_tile(cell)
+                        self.stats["teamStats"][team]["cityTilesBuilt"] += 1
+                    else:
+                        assert cell.city_tile.city_id == city_id
+                        assert cell in city.city_cells
 
                 elif input_identifier == INPUT_CONSTANTS.ROADS:
                     x = int(strings[1])
                     y = int(strings[2])
                     road = float(strings[3])
-                    self.map.get_cell(x, y).road = road
+                    cell = self.map.get_cell(x, y)
+                    if assign:
+                        cell.road = road
+                    else:
+                        # assert cell.road == road
+                        pass
 
     def _gen_initial_accumulated_action_stats(self):
         """
@@ -199,39 +232,49 @@ class Game:
         Somewhat implements src/Game/index.ts -> Game.validateCommand()
         :param cmd:
         """
-        invalid_msg = f"Agent {{cmd.agentID}} sent invalid command"
-        malformed_msg = f"Agent {{cmd.agentID}} sent malformed command: {{cmd.command}}"
+        return self.action_from_command_low(cmd.command, cmd.agentID)
+
+    def action_from_string(self, comm, agentID):
+        try:
+            return self.action_from_command_low(comm, agentID)
+        except KeyError:
+            print(f'action failed, probably a dead unit {agentID}: {comm}')
+            return None
+
+    def action_from_command_low(self, comm, agentID):
+
+        invalid_msg = f"Agent {agentID} sent invalid command"
+        malformed_msg = f"Agent {agentID} sent malformed command: {comm}"
 
         def check(condition, error_msg, trace=True):
             if condition:
                 if trace:
-                    raise Exception(error_msg + f"; turn {{self.state['turn']}}; cmd: {{cmd.command}}")
+                    raise Exception(error_msg + f"; turn {self.state['turn']}; cmd: {comm}")
                 else:
                     raise Exception(error_msg)
 
         # Tokenize command
-        args = cmd.command.split(' ')
-        check(len(args) > 0, invalid_msg)
-        action = args[0]
-        args = args[1:]
+        parts = comm.split(' ')
+        # check(len(parts) > 0, invalid_msg)
+        action = parts[0]
+        parts = parts[1:]
 
         # Load the team details
-        team = cmd.agentID
-        team_state = self.state["teamStates"][team]
+        team = agentID
 
         # Construct the action
         result = None
         if action == Constants.ACTIONS.PILLAGE:
-            check(len(args) != 1, malformed_msg)
-            uid = args[0]
+            check(len(parts) != 1, malformed_msg)
+            uid = parts[0]
 
             unit = self.get_unit(team, uid)
             check(unit is None, invalid_msg)
             result = PillageAction(team, uid)
 
         elif action == Constants.ACTIONS.BUILD_CITY:
-            check(len(args) != 1, malformed_msg)
-            uid = args[0]
+            check(len(parts) != 1, malformed_msg)
+            uid = parts[0]
 
             unit = self.get_unit(team, uid)
             check(unit is None, invalid_msg)
@@ -239,44 +282,43 @@ class Game:
             result = SpawnCityAction(team, uid)
 
         elif action == Constants.ACTIONS.BUILD_CART:
-            check(len(args) != 2, malformed_msg)
+            check(len(parts) != 2, malformed_msg)
 
-            x = int(args[0])
-            y = int(args[1])
+            x = int(parts[0])
+            y = int(parts[1])
 
             result = SpawnCartAction(team, None, x, y)
 
         elif action == Constants.ACTIONS.BUILD_WORKER:
-            check(len(args) != 2, malformed_msg)
+            check(len(parts) != 2, malformed_msg)
 
-            x = int(args[0])
-            y = int(args[1])
-
+            x = int(parts[0])
+            y = int(parts[1])
             result = SpawnWorkerAction(team, None, x, y)
 
         elif action == Constants.ACTIONS.MOVE:
-            check(len(args) != 2, malformed_msg)
+            check(len(parts) != 2, malformed_msg)
 
-            uid = args[0]
-            direction = args[1]
+            uid = parts[0]
+            direction = parts[1]
 
             result = MoveAction(team, uid, direction)
 
         elif action == Constants.ACTIONS.RESEARCH:
-            check(len(args) != 2, malformed_msg)
+            check(len(parts) != 2, malformed_msg)
 
-            x = int(args[0])
-            y = int(args[1])
+            x = int(parts[0])
+            y = int(parts[1])
 
-            result = ResearchAction(team, x, y)
+            result = ResearchAction(team, x, y, None)
 
         elif action == Constants.ACTIONS.TRANSFER:
-            check(len(args) != 4, malformed_msg)
+            check(len(parts) != 4, malformed_msg)
 
-            source_id = args[0]
-            destination_id = args[1]
-            resource_type = args[2]
-            amount = int(args[3])
+            source_id = parts[0]
+            destination_id = parts[1]
+            resource_type = parts[2]
+            amount = int(parts[3])
 
             result = TransferAction(
                 team,
@@ -285,13 +327,10 @@ class Game:
                 resource_type,
                 amount
             )
+        else:
+            raise Exception(f"unknown action {action}")
 
-        # Validate the action
-        # TODO: Add validation of accumulated actions?
-        if result is not None and result.is_valid(self):
-            return result
-
-        return None
+        return result
 
     def run_turn_with_actions(self, actions):
         """
@@ -570,11 +609,13 @@ class Game:
         """
         return self.worker_unit_cap_reached(team, offset)
 
-    def spawn_worker(self, team, x, y, unit_id=None, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+    def spawn_worker(self, team, x, y, unit_id=None, cooldown=0.0, cargo=None):
         """
         Spawns new worker
         Implements src/Game/index.ts -> Game.spawnWorker()
         """
+        if cargo is None:
+            cargo = {"wood": 0, "uranium": 0, "coal": 0}
         cell = self.map.get_cell(x, y)
         unit = Worker(
             x,

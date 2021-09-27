@@ -101,7 +101,7 @@ def smart_transfer_to_nearby(game, team, unit_id, unit, target_type_restriction=
 # This is the Agent that you need to design for the competition
 ########################################################################################################################
 class AgentPolicy(Agent):
-    def __init__(self, mode="train", model=None) -> None:
+    def __init__(self, mode="train", model=None, replay=None) -> None:
         """
         Arguments:
             mode: "train" or "inference", which controls if this agent is for training or not.
@@ -111,6 +111,8 @@ class AgentPolicy(Agent):
         self.model = model
         self.mode = mode
 
+        self.replay = replay
+        
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -521,16 +523,24 @@ class AgentPolicy(Agent):
         start_time = time.time()
         actions = []
         new_turn = True
+        turn = game.state["turn"]
+
+        if self.replay is not None:
+            acts = self.replay['steps'][turn+1][team]["action"]
+            acts = [game.action_from_string(a, team) for a in acts]
+            acts = [a for a in acts if a is not None]
+            actions.extend(acts)
 
         # Inference the model per-unit
         units = game.state["teamStates"][team]["units"].values()
         for unit in units:
             if unit.can_act():
                 obs = self.get_observation(game, unit, None, unit.team, new_turn)
-                action_code, _states = self.model.predict(obs, deterministic=True)
-                if action_code is not None:
-                    actions.append(
-                        self.action_code_to_action(action_code, game=game, unit=unit, city_tile=None, team=unit.team))
+                if self.replay is None:
+                    action_code, _states = self.model.predict(obs, deterministic=True)
+                    if action_code is not None:
+                        actions.append(
+                            self.action_code_to_action(action_code, game=game, unit=unit, city_tile=None, team=unit.team))
                 new_turn = False
 
         # Inference the model per-city
@@ -541,11 +551,12 @@ class AgentPolicy(Agent):
                     city_tile = cell.city_tile
                     if city_tile.can_act():
                         obs = self.get_observation(game, None, city_tile, city.team, new_turn)
-                        action_code, _states = self.model.predict(obs, deterministic=True)
-                        if action_code is not None:
-                            actions.append(
-                                self.action_code_to_action(action_code, game=game, unit=None, city_tile=city_tile,
-                                                           team=city.team))
+                        if self.replay is None:
+                            action_code, _states = self.model.predict(obs, deterministic=True)
+                            if action_code is not None:
+                                actions.append(
+                                    self.action_code_to_action(action_code, game=game, unit=None, city_tile=city_tile,
+                                                            team=city.team))
                         new_turn = False
 
         time_taken = time.time() - start_time
