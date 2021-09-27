@@ -155,6 +155,24 @@ class MatchController:
                 # Add the action
                 self.action_buffer.append(action)
 
+        # Mark the unit or city as not able to perform another action this turn
+        actionable = None
+        if hasattr(action, 'unit_id') and action.unit_id is not None:
+            # Mark the unit as already-actioned this turn
+            if action.unit_id in self.game.state["teamStates"][0]["units"]:
+                actionable = self.game.state["teamStates"][0]["units"][action.unit_id]
+            elif action.unit_id in self.game.state["teamStates"][1]["units"]:
+                actionable = self.game.state["teamStates"][1]["units"][action.unit_id]
+
+        elif hasattr(action, 'x') and action.x is not None:
+            # Mark the city as already-actioned this turn
+            cell = self.game.map.get_cell(action.x, action.y)
+            if cell.is_city_tile():
+                actionable = cell.city_tile
+
+        if actionable is not None:
+            actionable.set_can_act_override(False)
+
     def take_actions(self, actions):
         """
          Adds the specified action to the action buffer
@@ -192,7 +210,7 @@ class MatchController:
             for agent in self.agents:
                 agent.pre_turn(self.game, is_first_turn)
 
-            # Process any pending action sequences
+            # Process any pending action sequences to automatically apply actions to units for this turn
             for id in list(self.action_sequences.keys()):
                 sequence = self.action_sequences[id]
                 actionable = None
@@ -212,15 +230,15 @@ class MatchController:
                     # Continue the action sequence for this unit automatically
                     self.take_action(sequence.get_next_action())
 
-                    # Instruct the game that this unit has acted already this turn
-                    actionable.set_can_act_override(False)
-
                     if sequence.is_done():
                         self.action_sequences.pop(id)
                 elif actionable == None:
                     # Delete the action sequence, the object isn't valid anymore
                     self.action_sequences.pop(id)
-                
+            
+            # Run agent.turn_heurstics() to apply any agent heristics to give units orders
+            for agent in self.agents:
+                agent.turn_heurstics(self.game, is_first_turn)
 
             # Process this turn
             for agent in self.agents:
