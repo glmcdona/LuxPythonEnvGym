@@ -126,6 +126,7 @@ class LuxEnvironment(gym.Env):
         except StopIteration:
             # The game episode is done.
             is_game_error = False
+            print('Episode run finished successfully!')
         except GameStepFailedException:
             # Game step failed.
             is_game_error = True
