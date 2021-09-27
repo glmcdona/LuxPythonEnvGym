@@ -40,7 +40,7 @@ class Game:
         self.global_city_id_count = 0
         self.global_unit_id_count = 0
         self.cities = {}  # string -> City
-        self.cells_with_roads = [] # Maintained to speed up agent designs that want to build road maps
+        self.cells_with_roads = set() # Set, maintained to speed up agent designs that want to build road maps
         self.stats = {
             "teamStats": {
                 Constants.TEAM.A: {
@@ -174,7 +174,7 @@ class Game:
                     road = float(strings[3])
                     c = self.map.get_cell(x, y)
                     if c not in self.cells_with_roads:
-                        self.cells_with_roads.append(c)
+                        self.cells_with_roads.add(c)
 
                     c.road = road
 

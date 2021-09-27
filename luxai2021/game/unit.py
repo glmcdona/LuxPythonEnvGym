@@ -262,4 +262,4 @@ class Cart(Unit):
             )
             game.stats["teamStats"][self.team]["roadsBuilt"] += self.configs["parameters"]["CART_ROAD_DEVELOPMENT_RATE"]
             if end_cell not in game.cells_with_roads:
-                game.cells_with_roads.append(end_cell)
+                game.cells_with_roads.add(end_cell)
