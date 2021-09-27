@@ -81,7 +81,7 @@ class MatchController:
                     # Add the action
                     self.action_buffer.append(action)
                 else:
-                    print(f'action is invalid {action}: {vars(action)}')
+                    print(f'action is invalid {action} turn {self.game.state["turn"]}: {vars(action)}')
             except KeyError:
                 print(f'action failed, probably a dead unit {action}: {vars(action)}')
 
