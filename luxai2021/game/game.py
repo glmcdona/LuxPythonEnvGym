@@ -168,6 +168,7 @@ class Game:
                     else:
                         cell = self.map.get_cell(x, y)
                         assert len(cell.units) > 0
+                        assert unit_id in [u.id for u in cell.units.values()], f'unit id {unit_id} missplaced'
 
                 elif input_identifier == INPUT_CONSTANTS.CITY:
                     team = int(strings[1])

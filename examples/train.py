@@ -9,7 +9,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from .agent_policy import AgentPolicy
+from agent_policy import AgentPolicy
 from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
@@ -71,26 +71,8 @@ def get_command_line_arguments():
 
     return args
 
-def get_model(args, env):
-    model = PPO("MlpPolicy",
-                env,
-                verbose=1,
-                tensorboard_log="./lux_tensorboard/",
-                learning_rate=args.learning_rate,
-                gamma=args.gamma,
-                gae_lambda=args.gae_lambda,
-                batch_size=args.batch_size,
-                n_steps=args.n_steps
-                )
-    return model
 
-def load_latest_model(run_id, model):
-    saves = glob.glob(f'models/rl_model_{run_id}_*_steps.zip')
-    latest_save = sorted(saves, key=lambda x: int(x.split('_')[-2]), reverse=True)[0]
-    model.load(path=latest_save)
-    return model
-
-def train(args, player=None, opponent=None, load_id=None):
+def train(args):
     """
     The main training loop
     :param args: (ArgumentParser) The command line arguments
@@ -100,11 +82,11 @@ def train(args, player=None, opponent=None, load_id=None):
     # Run a training job
     configs = LuxMatchConfigs_Default
 
-    if opponent is None:
-        opponent = Agent()
-    
-    if player is None:
-        player = AgentPolicy(mode="train")
+    # Create a default opponent agent
+    opponent = Agent()
+
+    # Create a RL agent in training mode
+    player = AgentPolicy(mode="train")
 
     # Train the model
     num_cpu = 1
@@ -129,7 +111,16 @@ def train(args, player=None, opponent=None, load_id=None):
 
         # TODO: Update other training parameters
     else:
-        model = get_model(args, env)
+        model = PPO("MlpPolicy",
+                    env,
+                    verbose=1,
+                    tensorboard_log="./lux_tensorboard/",
+                    learning_rate=args.learning_rate,
+                    gamma=args.gamma,
+                    gae_lambda=args.gae_lambda,
+                    batch_size=args.batch_size,
+                    n_steps=args.n_steps
+                    )
 
     print("Training model...")
     # Save a checkpoint every 1M steps
@@ -144,7 +135,9 @@ def train(args, player=None, opponent=None, load_id=None):
 
     # Inference the model
     print("Inference model policy with rendering...")
-    model = load_latest_model(run_id, model)
+    saves = glob.glob(f'models/rl_model_{run_id}_*_steps.zip')
+    latest_save = sorted(saves, key=lambda x: int(x.split('_')[-2]), reverse=True)[0]
+    model.load(path=latest_save)
     obs = env.reset()
     for i in range(600):
         action_code, _states = model.predict(obs, deterministic=True)
