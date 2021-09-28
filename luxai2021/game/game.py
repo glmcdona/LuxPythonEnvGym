@@ -119,10 +119,11 @@ class Game:
                 input_identifier = strings[0]
                 if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
                     team = int(strings[1])
+                    research_points = int(strings[2])
                     if assign:
-                        self.state["teamStates"][team]["researchPoints"] = int(strings[2])
+                        self.state["teamStates"][team]["researchPoints"] = research_points
                     else:
-                        assert self.state["teamStates"][team]["researchPoints"] == int(strings[2])
+                        assert self.state["teamStates"][team]["researchPoints"] == research_points
 
                     if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
                         if assign:

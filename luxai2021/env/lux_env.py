@@ -112,7 +112,7 @@ class LuxEnvironment(gym.Env):
         """
 
         for agent in self.match_controller.agents:
-            assert agent.get_agent_type() == Constants.AGENT_TYPE.AGENT
+            assert agent.get_agent_type() == Constants.AGENT_TYPE.AGENT, "Both agents must be in inference mode"
 
         self.current_step = 0
         self.last_observation_object = None
