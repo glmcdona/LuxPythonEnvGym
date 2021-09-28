@@ -1,5 +1,6 @@
 import pytest
 import json
+import os
 from luxai2021.game.constants import LuxMatchConfigs_Default
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.env.agent import Agent
@@ -15,7 +16,8 @@ def test_run_replay(replay_id):
     print("Testing simulated replays...")
     print(replay_id)
 
-    with open(f"C:/StudioProjects/Lux/replays/episodes/{replay_id}.json", mode="r") as replay_file:
+    script_dir = os.path.dirname(__file__)
+    with open(os.path.join(script_dir, f"replays/{replay_id}.json"), mode="r") as replay_file:
         json_args = json.load(replay_file)
     
     config = LuxMatchConfigs_Default.copy()
