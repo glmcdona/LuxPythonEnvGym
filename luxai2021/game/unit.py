@@ -281,7 +281,6 @@ class Cart(Unit):
             acted = True
             if isinstance(action, MoveAction):
                 game.move_unit(action.team, action.unit_id, action.direction)
-                self.cooldown += self.configs["parameters"]["UNIT_ACTION_COOLDOWN"]["CART"] * cooldown_multiplier
             elif isinstance(action, TransferAction):
                 game.transfer_resources(
                     action.team,

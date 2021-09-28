@@ -204,8 +204,7 @@ class Game:
                     if assign:
                         cell.road = road
                     else:
-                        # assert cell.road == road
-                        pass
+                        assert cell.get_road() == road
 
     def _gen_initial_accumulated_action_stats(self):
         """
@@ -256,7 +255,7 @@ class Game:
 
         # Tokenize command
         parts = comm.split(' ')
-        # check(len(parts) > 0, invalid_msg)
+        check(len(parts) <= 1, invalid_msg)
         action = parts[0]
         parts = parts[1:]
 
@@ -639,11 +638,13 @@ class Game:
         self.stats["teamStats"][team]["workersBuilt"] += 1
         return unit
 
-    def spawn_cart(self, team, x, y, unit_id=None, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+    def spawn_cart(self, team, x, y, unit_id=None, cooldown=0.0, cargo=None):
         """
         Spawns new cart
         Implements src/Game/index.ts -> Game.spawnCart()
         """
+        if cargo is None:
+            cargo = {"wood": 0, "uranium": 0, "coal": 0}
         cell = self.map.get_cell(x, y)
         unit = Cart(x,
                     y,
@@ -672,13 +673,14 @@ class Game:
         # now update the cities field accordingly
         adj_cells = self.map.get_adjacent_cells(cell)
 
-        city_ids_found = set()
+        city_ids_found = []
 
         adj_same_team_city_tiles = []
         for cell2 in adj_cells:
             if cell2.is_city_tile() and cell2.city_tile.team == team:
                 adj_same_team_city_tiles.append(cell2)
-                city_ids_found.add(cell2.city_tile.city_id)
+                if cell2.city_tile.city_id not in city_ids_found:
+                    city_ids_found.append(cell2.city_tile.city_id)
 
         # if no adjacent city cells of same team, generate new city
         if len(adj_same_team_city_tiles) == 0:
