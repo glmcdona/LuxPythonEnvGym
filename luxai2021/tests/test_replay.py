@@ -17,7 +17,7 @@ def test_run_replay(replay_id):
     print(replay_id)
 
     script_dir = os.path.dirname(__file__)
-    with open(os.path.join(script_dir, f"replays/{replay_id}.json"), mode="r") as replay_file:
+    with open(os.path.join(script_dir, f"replays_for_test/{replay_id}.json"), mode="r") as replay_file:
         json_args = json.load(replay_file)
     
     config = LuxMatchConfigs_Default.copy()
