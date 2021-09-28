@@ -6,12 +6,15 @@ Implements the base class for a training Agent
 
 
 class Agent:
-    def __init__(self) -> None:
+    def __init__(self, replay=None) -> None:
         """
         Implements an agent opponent
         """
+        self.replay = replay
         self.team = None
         self.match_controller = None
+        self.action_space = None
+        self.observation_space = None
     
     def game_start(self, game):
         """
@@ -32,7 +35,16 @@ class Agent:
         :param team:
         :return: Array of actions to perform for this turn.
         """
-        return []
+        actions = []
+        turn = game.state["turn"]
+
+        if self.replay is not None:
+            acts = self.replay['steps'][turn+1][team]["action"]
+            acts = [game.action_from_string(a, team) for a in acts]
+            acts = [a for a in acts if a is not None]
+            actions.extend(acts)
+        
+        return actions
 
     def pre_turn(self, game, is_first_turn=False):
         """

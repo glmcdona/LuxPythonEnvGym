@@ -12,8 +12,7 @@ UNIT_TYPES = Constants.UNIT_TYPES
 
 
 class Unit(Actionable):
-    def __init__(self, x, y, unit_type, team, configs, idcount, cooldown=0.0,
-                 cargo={"wood": 0, "uranium": 0, "coal": 0}):
+    def __init__(self, x, y, unit_type, team, configs, idcount, cooldown=0.0, cargo=None):
         """
 
         :param x:
@@ -26,6 +25,8 @@ class Unit(Actionable):
         :param cargo:
         """
         super().__init__(configs, cooldown)
+        if cargo is None:
+            cargo = {"wood": 0, "uranium": 0, "coal": 0}
         self.pos = Position(x, y)
         self.team = team
         self.type = unit_type
@@ -158,7 +159,9 @@ class Worker(Unit):
     Worker class. Mirrors /src/Unit/index.ts -> Worker()
     """
 
-    def __init__(self, x, y, team, configs, idcount, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+    def __init__(self, x, y, team, configs, idcount, cooldown=0.0, cargo=None):
+        if cargo is None:
+            cargo = {"wood": 0, "uranium": 0, "coal": 0}
         super().__init__(x, y, Constants.UNIT_TYPES.WORKER, team, configs, idcount, cooldown, cargo)
 
     def get_light_upkeep(self):
@@ -234,7 +237,7 @@ class Cart(Unit):
     Cart class. Mirrors /src/Unit/index.ts -> Cart()
     """
 
-    def __init__(self, x, y, team, configs, id_count, cooldown=0.0, cargo={"wood": 0, "uranium": 0, "coal": 0}):
+    def __init__(self, x, y, team, configs, id_count, cooldown=0.0, cargo=None):
         """
         
         :param x: 
@@ -245,6 +248,8 @@ class Cart(Unit):
         :param cooldown: 
         :param cargo: 
         """
+        if cargo is None:
+            cargo = {"wood": 0, "uranium": 0, "coal": 0}
         super().__init__(x, y, Constants.UNIT_TYPES.CART, team, configs, id_count, cooldown, cargo)
 
     def get_light_upkeep(self):
@@ -276,7 +281,6 @@ class Cart(Unit):
             acted = True
             if isinstance(action, MoveAction):
                 game.move_unit(action.team, action.unit_id, action.direction)
-                self.cooldown += self.configs["parameters"]["UNIT_ACTION_COOLDOWN"]["CART"] * cooldown_multiplier
             elif isinstance(action, TransferAction):
                 game.transfer_resources(
                     action.team,
