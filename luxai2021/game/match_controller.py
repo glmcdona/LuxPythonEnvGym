@@ -72,7 +72,7 @@ class ActionSequence():
 
 
 class MatchController:
-    def __init__(self, game, agents=[None, None]) -> None:
+    def __init__(self, game, agents=[None, None], replay_validate=None) -> None:
         """
 
         :param game:
@@ -81,6 +81,7 @@ class MatchController:
         self.action_buffer = []
         self.game = game
         self.agents = agents
+        self.replay_validate = replay_validate
 
         if len(agents) != 2:
             raise ValueError("Two agents must be specified.")
@@ -109,15 +110,16 @@ class MatchController:
         elif self.training_agent_count == 0:
             print("Running in inference-only mode.", file=sys.stderr)
 
-    def reset(self, reset_game=True):
+    def reset(self, reset_game=True, randomize_team_order=True):
         """
 
         :return:
         """
         # Randomly re-assign teams of the agents
-        r = random.randint(0, 1)
-        self.agents[0].set_team(r)
-        self.agents[1].set_team((r + 1) % 2)
+        if randomize_team_order:
+            r = random.randint(0, 1)
+            self.agents[0].set_team(r)
+            self.agents[1].set_team((r + 1) % 2)
 
         # Reset action sequences
         self.action_sequences = {}
@@ -151,9 +153,14 @@ class MatchController:
                         self.action_sequences[sequence.citytile] = sequence
 
             # Validate the action
-            if action.is_valid(self.game, self.action_buffer):
-                # Add the action
-                self.action_buffer.append(action)
+            try:
+                if action.is_valid(self.game, self.action_buffer):
+                    # Add the action
+                    self.action_buffer.append(action)
+                else:
+                    print(f'action is invalid {action} turn {self.game.state["turn"]}: {vars(action)}')
+            except KeyError:
+                print(f'action failed, probably a dead unit {action}: {vars(action)}')
 
         # Mark the unit or city as not able to perform another action this turn
         actionable = None
@@ -206,6 +213,8 @@ class MatchController:
         game_over = False
         is_first_turn = True
         while not game_over:
+            turn = self.game.state["turn"]
+
             # Run pre-turn agent events to allow for them to handle running the turn instead (used in a kaggle submission agent)
             for agent in self.agents:
                 agent.pre_turn(self.game, is_first_turn)
@@ -302,3 +311,6 @@ class MatchController:
                 raise GameStepFailedException("Critical error occurred in turn simulation.")
 
             self.action_buffer = []
+
+            if self.replay_validate is not None:
+                self.game.process_updates(self.replay_validate['steps'][turn+1][0]['observation']['updates'], assign=False)
