@@ -118,7 +118,7 @@ class AgentPolicy(Agent):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
-        self.actionSpaceMapUnits = [
+        self.actions_units = [
             partial(MoveAction, direction=Constants.DIRECTIONS.CENTER),  # This is the do-nothing action
             partial(MoveAction, direction=Constants.DIRECTIONS.NORTH),
             partial(MoveAction, direction=Constants.DIRECTIONS.WEST),
@@ -129,12 +129,12 @@ class AgentPolicy(Agent):
             SpawnCityAction,
             PillageAction,
         ]
-        self.actionSpaceMapCities = [
+        self.actions_cities = [
             SpawnWorkerAction,
             SpawnCartAction,
             ResearchAction,
         ]
-        self.action_space = spaces.Discrete(max(len(self.actionSpaceMapUnits), len(self.actionSpaceMapCities)))
+        self.action_space = spaces.Discrete(max(len(self.actions_units), len(self.actions_cities)))
 
         # Observation space: (Basic minimum for a miner agent)
         # Object:
@@ -445,7 +445,7 @@ class AgentPolicy(Agent):
                 y = unit.pos.y
             
             if city_tile != None:
-                action =  self.actionSpaceMapCities[action_code%len(self.actionSpaceMapCities)](
+                action =  self.actions_cities[action_code%len(self.actions_cities)](
                     game=game,
                     unit_id=unit.id if unit else None,
                     unit=unit,
@@ -469,7 +469,7 @@ class AgentPolicy(Agent):
                         y=y
                     )
             else:
-                action =  self.actionSpaceMapUnits[action_code%len(self.actionSpaceMapUnits)](
+                action =  self.actions_units[action_code%len(self.actions_units)](
                     game=game,
                     unit_id=unit.id if unit else None,
                     unit=unit,
