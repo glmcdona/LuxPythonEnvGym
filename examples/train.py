@@ -5,7 +5,7 @@ import random
 from typing import Callable
 
 from stable_baselines3 import PPO  # pip install stable-baselines3
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback, EvalCallback
 from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
@@ -14,6 +14,22 @@ from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
+class TensorboardCallback(BaseCallback):
+    """
+    Custom callback for plotting additional values in tensorboard. Only works with
+    single-env training setups. Logs values from Agent.stats at end-of-game.
+    """
+    def __init__(self, verbose=0):
+        super(TensorboardCallback, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        for e in self.training_env.envs:
+            if e.learning_agent.stats_last_game != None:
+                for name, value in e.learning_agent.stats_last_game.items():        
+                    self.logger.record(name, value)
+                e.learning_agent.stats_last_game = None
+        
+        return True
 
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
@@ -33,26 +49,6 @@ def make_env(local_env, rank, seed=0):
     return _init
 
 
-def linear_schedule(initial_value: float) -> Callable[[float], float]:
-    """
-    Linear learning rate schedule.
-
-    :param initial_value: (float) Initial learning rate.
-    :return: schedule that computes current learning rate depending on remaining progress
-    """
-
-    def func(progress_remaining: float) -> float:
-        """
-        Progress will decrease from 1 (beginning) to 0.
-
-        :param progress_remaining: (float)
-        :return: (float) current learning rate
-        """
-        return progress_remaining * initial_value
-
-    return func
-
-
 def get_command_line_arguments():
     """
     Get the command line arguments
@@ -67,6 +63,7 @@ def get_command_line_arguments():
     parser.add_argument('--step_count', help='Total number of steps to train', type=int, default=10000000)
     parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int, default=2048*8)
     parser.add_argument('--path', help='Path to a checkpoint to load to resume training', type=str, default=None)
+    parser.add_argument('--n_envs', help='Number of parallel environments to use in training', type=int, default=1)
     args = parser.parse_args()
 
     return args
@@ -89,15 +86,16 @@ def train(args):
     player = AgentPolicy(mode="train")
 
     # Train the model
-    num_cpu = 1
-    if num_cpu == 1:
+    env_eval = None
+    if args.n_envs == 1:
         env = LuxEnvironment(configs=configs,
                              learning_agent=player,
                              opponent_agent=opponent)
     else:
         env = SubprocVecEnv([make_env(LuxEnvironment(configs=configs,
                                                      learning_agent=AgentPolicy(mode="train"),
-                                                     opponent_agent=opponent), i) for i in range(num_cpu)])
+                                                     opponent_agent=opponent), i) for i in range(args.n_envs)])
+    
     run_id = args.id
     print("Run id %s" % run_id)
 
@@ -122,13 +120,41 @@ def train(args):
                     n_steps=args.n_steps
                     )
 
+    
+    
+    callbacks = []
+
+    # Save a checkpoint every 100K steps
+    callbacks.append(
+        CheckpointCallback(save_freq=100000,
+                            save_path='./models/',
+                            name_prefix=f'rl_model_{run_id}')
+    )
+
+    # Tensorboard logger of game values at end-of-game. This comes from Agent.stats. Only
+    # works for single-enviornment setups
+    if args.n_envs == 1:
+        callbacks.append(TensorboardCallback())
+    
+    # Since reward metrics don't work for multi-environment setups, we add an evaluation logger
+    # for metrics.
+    if args.n_envs > 1:
+        # An evaluation environment is needed to measure multi-env setups. Use a fixed 4 envs.
+        env_eval = SubprocVecEnv([make_env(LuxEnvironment(configs=configs,
+                                                     learning_agent=AgentPolicy(mode="train"),
+                                                     opponent_agent=opponent), i) for i in range(4)])
+
+        callbacks.append(
+            EvalCallback(env_eval, best_model_save_path=f'./logs_{run_id}/',
+                             log_path=f'./logs_{run_id}/',
+                             eval_freq=args.n_steps*2, # Run it every 2 training iterations
+                             n_eval_episodes=30, # Run 30 games
+                             deterministic=False, render=False)
+        )
+
     print("Training model...")
-    # Save a checkpoint every 1M steps
-    checkpoint_callback = CheckpointCallback(save_freq=1000000,
-                                             save_path='./models/',
-                                             name_prefix=f'rl_model_{run_id}')
     model.learn(total_timesteps=args.step_count,
-                callback=checkpoint_callback)  # 20M steps
+                callback=callbacks)
     if not os.path.exists(f'models/rl_model_{run_id}_{args.step_count}_steps.zip'):
         model.save(path=f'models/rl_model_{run_id}_{args.step_count}_steps.zip')
     print("Done training model.")
