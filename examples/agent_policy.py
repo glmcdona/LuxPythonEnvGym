@@ -113,6 +113,7 @@ class AgentPolicy(Agent):
         self.model = model
         self.mode = mode
         self.stats = None
+        self.stats_last_game = None
 
         # Define action and observation space
         # They must be gym.spaces objects
@@ -654,18 +655,6 @@ class AgentPolicy(Agent):
 
 
         return reward
-
-    def game_start(self, game):
-        """
-        This function is called at the start of each game. Use this to
-        reset and initialize per game. Note that self.team may have
-        been changed since last game. The game map has been created
-        and starting units placed.
-
-        Args:
-            game ([type]): Game.
-        """
-        return
 
     def turn_heurstics(self, game, is_first_turn):
         """
