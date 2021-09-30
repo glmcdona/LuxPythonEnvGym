@@ -40,6 +40,7 @@ class Game:
         self.global_city_id_count = 0
         self.global_unit_id_count = 0
         self.cities = {}  # string -> City
+        self.cells_with_roads = set() # Set, maintained to speed up agent designs that want to build road maps
         self.stats = {
             "teamStats": {
                 Constants.TEAM.A: {
@@ -202,6 +203,8 @@ class Game:
                     y = int(strings[2])
                     road = float(strings[3])
                     cell = self.map.get_cell(x, y)
+                    if cell not in self.cells_with_roads:
+                        self.cells_with_roads.add(cell)
                     if assign:
                         cell.road = road
                     else:
@@ -935,6 +938,8 @@ class Game:
         for cell in city.city_cells:
             cell.city_tile = None
             cell.road = self.configs["parameters"]["MIN_ROAD"]
+            if cell in self.cells_with_roads:
+                self.cells_with_roads.remove(cell)
 
     def destroy_unit(self, team, unit_id):
         """

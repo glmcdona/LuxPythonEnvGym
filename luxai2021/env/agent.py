@@ -18,7 +18,7 @@ class Agent:
     
     def game_start(self, game):
         """
-        This funciton is called at the start of each game. Use this to
+        This function is called at the start of each game. Use this to
         reset and initialize per game. Note that self.team may have
         been changed since last game. The game map has been created
         and starting units placed.
@@ -62,6 +62,18 @@ class Agent:
         :return: (bool) True if it handled the turn (don't run our game engine)
         """
         return False
+
+    def turn_heurstics(self, game, is_first_turn):
+        """
+        This is called pre-observation actions to allow for hardcoded heuristics
+        to control a subset of units. Any unit or city that gets an action from this
+        callback, will not create an observation+action.
+
+        Args:
+            game ([type]): Game in progress
+            is_first_turn (bool): True if it's the first turn of a game.
+        """
+        return
 
     def get_agent_type(self):
         """
