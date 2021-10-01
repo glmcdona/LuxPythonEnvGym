@@ -493,6 +493,7 @@ class AgentPolicy(Agent):
         """
         self.units_last = 0
         self.city_tiles_last = 0
+        self.fuel_collected_last = 0
 
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
         """
@@ -505,7 +506,7 @@ class AgentPolicy(Agent):
             return -1.0
 
         if not is_new_turn and not is_game_finished:
-            # Only apply rewards at the start of each turn
+            # Only apply rewards at the start of each turn or at game end
             return 0
 
         # Get some basic stats
@@ -528,7 +529,7 @@ class AgentPolicy(Agent):
                     city_tile_count_opponent += 1
         
         rewards = {}
-
+        
         # Give a reward for unit creation/death. 0.05 reward per unit.
         rewards["rew/r_units"] = (unit_count - self.units_last) * 0.05
         self.units_last = unit_count
@@ -536,22 +537,25 @@ class AgentPolicy(Agent):
         # Give a reward for city creation/death. 0.1 reward per city.
         rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * 0.1
         self.city_tiles_last = city_tile_count
+
+        # Reward collecting fuel
+        fuel_collected = game.stats["teamStats"][self.team]["fuelGenerated"]
+        rewards["rew/r_fuel_collected"] = ( (fuel_collected - self.fuel_collected_last) / 20000 )
+        self.fuel_collected_last = fuel_collected
         
-        # Give a reward up to around 50.0 based on number of city tiles at the end of the game
+        # Give a reward of 1.0 per city tile alive at the end of the game
         rewards["rew/r_city_tiles_end"] = 0
         if is_game_finished:
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
 
             '''
-            # Example win/loss of game reward instead
+            # Example of a game win/loss reward instead
             if game.get_winning_team() == self.team:
                 rewards["rew/r_game_win"] = 100.0 # Win
             else:
                 rewards["rew/r_game_win"] = -100.0 # Loss
             '''
-        
-        
         
         reward = 0
         for name, value in rewards.items():
@@ -573,7 +577,8 @@ class AgentPolicy(Agent):
 
     def process_turn(self, game, team):
         """
-        Decides on a set of actions for the current turn. Not used in training, only inference.
+        Decides on a set of actions for the current turn. Not used in training, only inference. Generally
+        don't modify this part of the code.
         Returns: Array of actions to perform.
         """
         start_time = time.time()
