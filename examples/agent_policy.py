@@ -455,19 +455,6 @@ class AgentPolicy(Agent):
                     x=x,
                     y=y
                 )
-
-                # If the city action is invalid, default to research action automatically
-                if not action.is_valid(game, actions_validated=[]):
-                    action = ResearchAction(
-                        game=game,
-                        unit_id=unit.id if unit else None,
-                        unit=unit,
-                        city_id=city_tile.city_id if city_tile else None,
-                        citytile=city_tile,
-                        team=team,
-                        x=x,
-                        y=y
-                    )
             else:
                 action =  self.actions_units[action_code%len(self.actions_units)](
                     game=game,
@@ -504,55 +491,14 @@ class AgentPolicy(Agent):
         Args:
             game ([type]): Game.
         """
-        self.last_generated_fuel = game.stats["teamStats"][self.team]["fuelGenerated"]
-        self.last_resources_collected = copy.deepcopy(game.stats["teamStats"][self.team]["resourcesCollected"])
-        if self.stats != None:
-            self.stats_last_game =  self.stats
-        self.stats = {
-            "rew/r_total": 0,
-            "rew/r_wood": 0,
-            "rew/r_coal": 0,
-            "rew/r_uranium": 0,
-            "rew/r_research": 0,
-            "rew/r_city_tiles_end": 0,
-            "rew/r_fuel_collected":0,
-            "rew/r_units":0,
-            "rew/r_city_tiles":0,
-            "game/turns": 0,
-            "game/research": 0,
-            "game/unit_count": 0,
-            "game/cart_count": 0,
-            "game/city_count": 0,
-            "game/city_tiles": 0,
-            "game/wood_rate_mined": 0,
-            "game/coal_rate_mined": 0,
-            "game/uranium_rate_mined": 0,
-        }
-        self.is_last_turn = False
-
-        # Calculate starting map resources
-        type_map = {
-            Constants.RESOURCE_TYPES.WOOD: "WOOD",
-            Constants.RESOURCE_TYPES.COAL: "COAL",
-            Constants.RESOURCE_TYPES.URANIUM: "URANIUM",
-        }
-
-        self.fuel_collected_last = 0
-        self.fuel_start = {}
-        self.fuel_last = {}
-        for type, type_upper in type_map.items():
-            self.fuel_start[type] = 0
-            self.fuel_last[type] = 0
-            for c in game.map.resources_by_type[type]:
-                self.fuel_start[type] += c.resource.amount * game.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_upper]
-
-        self.research_last = 0
         self.units_last = 0
         self.city_tiles_last = 0
+        self.fuel_collected_last = 0
 
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
         """
-        Returns the reward function for this step of the game.
+        Returns the reward function for this step of the game. Reward should be a
+        delta increment to the reward, not the total current reward.
         """
         if is_game_error:
             # Game environment step failed, assign a game lost reward to not incentivise this
@@ -560,18 +506,12 @@ class AgentPolicy(Agent):
             return -1.0
 
         if not is_new_turn and not is_game_finished:
-            # Only apply rewards at the start of each turn
+            # Only apply rewards at the start of each turn or at game end
             return 0
 
         # Get some basic stats
-        unit_count = len(game.state["teamStates"][self.team % 2]["units"])
-        cart_count = 0
-        for id, u in game.state["teamStates"][self.team % 2]["units"].items():
-            if u.type == Constants.UNIT_TYPES.CART:
-                cart_count += 1
+        unit_count = len(game.state["teamStates"][self.team]["units"])
 
-        unit_count_opponent = len(game.state["teamStates"][(self.team + 1) % 2]["units"])
-        research = min(game.state["teamStates"][self.team]["researchPoints"], 200.0) # Cap research points at 200
         city_count = 0
         city_count_opponent = 0
         city_tile_count = 0
@@ -588,71 +528,38 @@ class AgentPolicy(Agent):
                 else:
                     city_tile_count_opponent += 1
         
-        # Basic stats
-        self.stats["game/research"] = research
-        self.stats["game/city_tiles"] = city_tile_count
-        self.stats["game/city_count"] = city_count
-        self.stats["game/unit_count"] = unit_count
-        self.stats["game/cart_count"] = cart_count
-        self.stats["game/turns"] = game.state["turn"]
-
         rewards = {}
-
-        # Give up to 1.0 reward for each resource based on % of total mined.
-        type_map = {
-            Constants.RESOURCE_TYPES.WOOD: "WOOD",
-            Constants.RESOURCE_TYPES.COAL: "COAL",
-            Constants.RESOURCE_TYPES.URANIUM: "URANIUM",
-        }
-        fuel_now = {}
-        for type, type_upper in type_map.items():
-            fuel_now = game.stats["teamStats"][self.team]["resourcesCollected"][type] * game.configs["parameters"]["RESOURCE_TO_FUEL_RATE"][type_upper]
-            rewards["rew/r_%s" % type] = (fuel_now - self.fuel_last[type]) / self.fuel_start[type]
-            self.stats["game/%s_rate_mined" % type] = fuel_now / self.fuel_start[type]
-            self.fuel_last[type] = fuel_now
         
-        # Give more incentive for coal and uranium
-        rewards["rew/r_%s" % Constants.RESOURCE_TYPES.COAL] *= 2
-        rewards["rew/r_%s" % Constants.RESOURCE_TYPES.URANIUM] *= 4
-        
-        # Give a reward based on amount of fuel collected. 1.0 reward for each 20K fuel gathered.
-        fuel_collected = game.stats["teamStats"][self.team]["fuelGenerated"]
-        rewards["rew/r_fuel_collected"] = ( (fuel_collected - self.fuel_collected_last) / 20000 )
-        self.fuel_collected_last = fuel_collected
-
         # Give a reward for unit creation/death. 0.05 reward per unit.
         rewards["rew/r_units"] = (unit_count - self.units_last) * 0.05
         self.units_last = unit_count
 
-        # Give a reward for unit creation/death. 0.1 reward per city.
+        # Give a reward for city creation/death. 0.1 reward per city.
         rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * 0.1
         self.city_tiles_last = city_tile_count
 
-        # Tiny reward for research to help. Up to 0.5 reward for this.
-        rewards["rew/r_research"] = (research - self.research_last) / (200 * 2)
-        self.research_last = research
+        # Reward collecting fuel
+        fuel_collected = game.stats["teamStats"][self.team]["fuelGenerated"]
+        rewards["rew/r_fuel_collected"] = ( (fuel_collected - self.fuel_collected_last) / 20000 )
+        self.fuel_collected_last = fuel_collected
         
-        # Give a reward up to around 50.0 based on number of city tiles at the end of the game
+        # Give a reward of 1.0 per city tile alive at the end of the game
         rewards["rew/r_city_tiles_end"] = 0
         if is_game_finished:
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
+
+            '''
+            # Example of a game win/loss reward instead
+            if game.get_winning_team() == self.team:
+                rewards["rew/r_game_win"] = 100.0 # Win
+            else:
+                rewards["rew/r_game_win"] = -100.0 # Loss
+            '''
         
-        
-        # Update the stats and total reward
         reward = 0
         for name, value in rewards.items():
-            self.stats[name] += value
             reward += value
-        self.stats["rew/r_total"] += reward
-
-        # Print the final game stats sometimes
-        if is_game_finished and random.random() <= 0.15:
-            stats_string = []
-            for key, value in self.stats.items():
-                stats_string.append("%s=%.2f" % (key, value))
-            print(",".join(stats_string))
-
 
         return reward
 
@@ -670,7 +577,8 @@ class AgentPolicy(Agent):
 
     def process_turn(self, game, team):
         """
-        Decides on a set of actions for the current turn. Not used in training, only inference.
+        Decides on a set of actions for the current turn. Not used in training, only inference. Generally
+        don't modify this part of the code.
         Returns: Array of actions to perform.
         """
         start_time = time.time()

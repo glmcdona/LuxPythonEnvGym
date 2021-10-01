@@ -14,23 +14,6 @@ from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
-class TensorboardCallback(BaseCallback):
-    """
-    Custom callback for plotting additional values in tensorboard. Only works with
-    single-env training setups. Logs values from Agent.stats at end-of-game.
-    """
-    def __init__(self, verbose=0):
-        super(TensorboardCallback, self).__init__(verbose)
-
-    def _on_step(self) -> bool:
-        for e in self.training_env.envs:
-            if e.learning_agent.stats_last_game != None:
-                for name, value in e.learning_agent.stats_last_game.items():        
-                    self.logger.record(name, value)
-                e.learning_agent.stats_last_game = None
-        
-        return True
-
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
     """
@@ -130,11 +113,6 @@ def train(args):
                             save_path='./models/',
                             name_prefix=f'rl_model_{run_id}')
     )
-
-    # Tensorboard logger of game values at end-of-game. This comes from Agent.stats. Only
-    # works for single-enviornment setups
-    if args.n_envs == 1:
-        callbacks.append(TensorboardCallback())
     
     # Since reward metrics don't work for multi-environment setups, we add an evaluation logger
     # for metrics.
