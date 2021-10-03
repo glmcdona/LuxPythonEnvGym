@@ -28,8 +28,13 @@ class LuxEnvironment(gym.Env):
                                                 agents=[learning_agent, opponent_agent], 
                                                 replay_validate=replay_validate)
 
-        self.action_space = learning_agent.action_space
-        self.observation_space = learning_agent.observation_space
+        self.action_space = []
+        if hasattr( learning_agent, 'action_space' ):
+            self.action_space = learning_agent.action_space
+        
+        self.observation_space = {}
+        if hasattr( learning_agent, 'observation_space' ):
+            self.observation_space = learning_agent.observation_space
 
         self.learning_agent = learning_agent
 
