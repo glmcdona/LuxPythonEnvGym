@@ -1,20 +1,20 @@
+import sys
+import time
+
+import numpy as np
+from gym import spaces
 from ..game.constants import Constants
 
 """
 Implements the base class for a training Agent
 """
-
-
 class Agent:
-    def __init__(self, replay=None) -> None:
+    def __init__(self) -> None:
         """
         Implements an agent opponent
         """
-        self.replay = replay
         self.team = None
         self.match_controller = None
-        self.action_space = None
-        self.observation_space = None
     
     def game_start(self, game):
         """
@@ -36,14 +36,6 @@ class Agent:
         :return: Array of actions to perform for this turn.
         """
         actions = []
-        turn = game.state["turn"]
-
-        if self.replay is not None:
-            acts = self.replay['steps'][turn+1][team]["action"]
-            acts = [game.action_from_string(a, team) for a in acts]
-            acts = [a for a in acts if a is not None]
-            actions.extend(acts)
-        
         return actions
 
     def pre_turn(self, game, is_first_turn=False):
@@ -90,17 +82,136 @@ class Agent:
 
     def set_controller(self, match_controller):
         """
-
         """
         self.match_controller = match_controller
 
 
-"""
-Wrapper for an external agent where this agent's commands are coming in through standard input.
-"""
+class AgentFromReplay(Agent):
+    """
+    Base class for an agent from a specified json replay file.
+    """
+    def __init__(self, replay=None) -> None:
+        """
+        Implements an agent opponent
+        """
+        super().__init__()
+        self.replay = replay
+    
+    def get_agent_type(self):
+        """
+        Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
+        """
+        return Constants.AGENT_TYPE.AGENT
+
+    def process_turn(self, game, team):
+        """
+        Decides on a set of actions for the current turn.
+        :param game:
+        :param team:
+        :return: Array of actions to perform for this turn.
+        """
+        actions = []
+        turn = game.state["turn"]
+
+        if self.replay is not None:
+            acts = self.replay['steps'][turn+1][team]["action"]
+            acts = [game.action_from_string(a, team) for a in acts]
+            acts = [a for a in acts if a is not None]
+            actions.extend(acts)
+        
+        return actions
+        
+    
+
+class AgentWithModel(Agent):
+    """
+    Base class for a stable_baselines3 reinforcement learning agent.
+    """
+    def __init__(self, mode="train", model=None) -> None:
+        """
+        Implements an agent opponent
+        """
+        super().__init__()
+        self.action_space = spaces.Discrete(10)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(10,1), dtype=np.float16)
+
+        self.model = model
+        self.mode = mode
+    
+    def get_agent_type(self):
+        """
+        Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
+        """
+        if self.mode == "train":
+            return Constants.AGENT_TYPE.LEARNING
+        else:
+            return Constants.AGENT_TYPE.AGENT
+    
+    def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
+        """
+        Returns the reward function for this step of the game. Reward should be a
+        delta increment to the reward, not the total current reward.
+        """
+        return 0
+    
+    def get_observation(self, game, unit, city_tile, team, is_new_turn):
+        """
+        Implements getting a observation from the current game for this unit or city
+        """
+        return np.zeros((10,1))
+
+    def process_turn(self, game, team):
+        """
+        Decides on a set of actions for the current turn. Not used in training, only inference. Generally
+        don't modify this part of the code.
+        Returns: Array of actions to perform.
+        """
+        start_time = time.time()
+        actions = []
+        new_turn = True
+
+        # Inference the model per-unit
+        units = game.state["teamStates"][team]["units"].values()
+        for unit in units:
+            if unit.can_act():
+                obs = self.get_observation(game, unit, None, unit.team, new_turn)
+                # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
+                # I've found the agents get stuck sometimes if they are fully deterministic.
+                action_code, _states = self.model.predict(obs, deterministic=False)
+                if action_code is not None:
+                    actions.append(
+                        self.action_code_to_action(action_code, game=game, unit=unit, city_tile=None, team=unit.team))
+                new_turn = False
+
+        # Inference the model per-city
+        cities = game.cities.values()
+        for city in cities:
+            if city.team == team:
+                for cell in city.city_cells:
+                    city_tile = cell.city_tile
+                    if city_tile.can_act():
+                        obs = self.get_observation(game, None, city_tile, city.team, new_turn)
+                        # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
+                        # I've found the agents get stuck sometimes if they are fully deterministic.
+                        action_code, _states = self.model.predict(obs, deterministic=False)
+                        if action_code is not None:
+                            actions.append(
+                                self.action_code_to_action(action_code, game=game, unit=None, city_tile=city_tile,
+                                                           team=city.team))
+                        new_turn = False
+
+        time_taken = time.time() - start_time
+        if time_taken > 0.5:  # Warn if larger than 0.5 seconds.
+            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % time_taken,
+                  file=sys.stderr)
+
+        return actions
 
 
 class AgentFromStdInOut(Agent):
+    """
+    Wrapper for an external agent where this agent's commands are coming in through standard input.
+    """
     def __init__(self) -> None:
         """
         Implements an agent opponent

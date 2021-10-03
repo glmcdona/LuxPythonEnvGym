@@ -185,9 +185,10 @@ class MatchController:
     def take_actions(self, actions):
         """
          Adds the specified action to the action buffer
-         """
-        for action in actions:
-            self.take_action(action)
+        """
+        if actions != None:
+            for action in actions:
+                self.take_action(action)
 
     def log_error(self, text):
         # Ignore errors caused by logger

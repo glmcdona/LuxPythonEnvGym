@@ -7,7 +7,7 @@ import random
 import numpy as np
 from gym import spaces
 
-from luxai2021.env.agent import Agent
+from luxai2021.env.agent import Agent, AgentWithModel
 from luxai2021.game.actions import *
 from luxai2021.game.game_constants import GAME_CONSTANTS
 from luxai2021.game.position import Position
@@ -102,18 +102,14 @@ def smart_transfer_to_nearby(game, team, unit_id, unit, target_type_restriction=
 ########################################################################################################################
 # This is the Agent that you need to design for the competition
 ########################################################################################################################
-class AgentPolicy(Agent):
+class AgentPolicy(AgentWithModel):
     def __init__(self, mode="train", model=None) -> None:
         """
         Arguments:
             mode: "train" or "inference", which controls if this agent is for training or not.
             model: The pretrained model, or if None it will operate in training mode.
         """
-        super().__init__()
-        self.model = model
-        self.mode = mode
-        self.stats = None
-        self.stats_last_game = None
+        super().__init__(mode, model)
 
         # Define action and observation space
         # They must be gym.spaces objects
@@ -575,50 +571,5 @@ class AgentPolicy(Agent):
         """
         return
 
-    def process_turn(self, game, team):
-        """
-        Decides on a set of actions for the current turn. Not used in training, only inference. Generally
-        don't modify this part of the code.
-        Returns: Array of actions to perform.
-        """
-        start_time = time.time()
-        actions = []
-        new_turn = True
-
-        # Inference the model per-unit
-        units = game.state["teamStates"][team]["units"].values()
-        for unit in units:
-            if unit.can_act():
-                obs = self.get_observation(game, unit, None, unit.team, new_turn)
-                # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
-                # I've found the agents get stuck sometimes if they are fully deterministic.
-                action_code, _states = self.model.predict(obs, deterministic=False)
-                if action_code is not None:
-                    actions.append(
-                        self.action_code_to_action(action_code, game=game, unit=unit, city_tile=None, team=unit.team))
-                new_turn = False
-
-        # Inference the model per-city
-        cities = game.cities.values()
-        for city in cities:
-            if city.team == team:
-                for cell in city.city_cells:
-                    city_tile = cell.city_tile
-                    if city_tile.can_act():
-                        obs = self.get_observation(game, None, city_tile, city.team, new_turn)
-                        # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
-                        # I've found the agents get stuck sometimes if they are fully deterministic.
-                        action_code, _states = self.model.predict(obs, deterministic=False)
-                        if action_code is not None:
-                            actions.append(
-                                self.action_code_to_action(action_code, game=game, unit=None, city_tile=city_tile,
-                                                           team=city.team))
-                        new_turn = False
-
-        time_taken = time.time() - start_time
-        if time_taken > 0.5:  # Warn if larger than 0.5 seconds.
-            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % time_taken,
-                  file=sys.stderr)
-
-        return actions
+    
 

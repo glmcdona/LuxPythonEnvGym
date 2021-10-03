@@ -62,7 +62,7 @@ A gym interface and match controller was created that supports creating custom a
 import random
 from stable_baselines3 import PPO  # pip install stable-baselines3
 from luxai2021.env.lux_env import LuxEnvironment
-from luxai2021.env.agent import Agent
+from luxai2021.env.agent import Agent, AgentWithModel
 from luxai2021.game.game import Game
 from luxai2021.game.actions import *
 from luxai2021.game.constants import LuxMatchConfigs_Default
@@ -72,15 +72,12 @@ from gym import spaces
 import time
 import sys
 
-class MyCustomAgent(Agent):
+class MyCustomAgent(AgentWithModel):
     def __init__(self, mode="train", model=None) -> None:
         """
         Implements an agent opponent
         """
-        super().__init__()
-        
-        self.model = model
-        self.mode = mode
+        super().__init__(mode, model)
         
         # Define action and observation space
         # They must be gym.spaces objects
@@ -100,12 +97,6 @@ class MyCustomAgent(Agent):
         ]
         self.action_space = spaces.Discrete(max(len(self.actions_units), len(self.actions_cities)))
         self.observation_space = spaces.Box(low=0, high=1, shape=(10,1), dtype=np.float16)
-    
-    def get_agent_type(self):
-        """
-        Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
-        """
-        return Constants.AGENT_TYPE.LEARNING
 
     def game_start(self, game):
         """
@@ -190,7 +181,7 @@ class MyCustomAgent(Agent):
         """
         action = self.action_code_to_action(action_code, game, unit, city_tile, team)
         self.match_controller.take_action(action)
-        
+    
     def game_start(self, game):
         """
         This function is called at the start of each game. Use this to
@@ -216,52 +207,6 @@ class MyCustomAgent(Agent):
 
         return 0
     
-    def process_turn(self, game, team):
-        """
-        Decides on a set of actions for the current turn. Not used in training, only inference. Generally
-        don't modify this part of the code.
-        Returns: Array of actions to perform.
-        """
-        start_time = time.time()
-        actions = []
-        new_turn = True
-
-        # Inference the model per-unit
-        units = game.state["teamStates"][team]["units"].values()
-        for unit in units:
-            if unit.can_act():
-                obs = self.get_observation(game, unit, None, unit.team, new_turn)
-                # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
-                # I've found the agents get stuck sometimes if they are fully deterministic.
-                action_code, _states = self.model.predict(obs, deterministic=False)
-                if action_code is not None:
-                    actions.append(
-                        self.action_code_to_action(action_code, game=game, unit=unit, city_tile=None, team=unit.team))
-                new_turn = False
-
-        # Inference the model per-city
-        cities = game.cities.values()
-        for city in cities:
-            if city.team == team:
-                for cell in city.city_cells:
-                    city_tile = cell.city_tile
-                    if city_tile.can_act():
-                        obs = self.get_observation(game, None, city_tile, city.team, new_turn)
-                        # IMPORTANT: You can change deterministic=True to disable randomness in model inference. Generally,
-                        # I've found the agents get stuck sometimes if they are fully deterministic.
-                        action_code, _states = self.model.predict(obs, deterministic=False)
-                        if action_code is not None:
-                            actions.append(
-                                self.action_code_to_action(action_code, game=game, unit=None, city_tile=city_tile,
-                                                           team=city.team))
-                        new_turn = False
-
-        time_taken = time.time() - start_time
-        if time_taken > 0.5:  # Warn if larger than 0.5 seconds.
-            print("WARNING: Inference took %.3f seconds for computing actions. Limit is 1 second." % time_taken,
-                  file=sys.stderr)
-
-        return actions
 
 if __name__ == "__main__":
     # Create the two agents that will play eachother
@@ -306,7 +251,7 @@ if __name__ == "__main__":
                 )
     
     print("Training model for 100K steps...")
-    model.learn(total_timesteps=10000)
+    model.learn(total_timesteps=10000000)
     model.save(path='model.zip')
 
     # Inference the agent for 5 games
@@ -321,6 +266,7 @@ if __name__ == "__main__":
             print(env.game.map.get_map_string())
             obs = env.reset()
             game_count += 1
+
 
 
 ```
