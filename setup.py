@@ -1,7 +1,4 @@
-import os
-import sys
 from setuptools import setup, find_packages
-
 
 setup(
     name='luxai2021',
@@ -18,16 +15,9 @@ setup(
         "stable_baselines3",
         "numpy",
         "tensorboard",
-        "gym<0.20.0"
+        "gym"
     ],
     package_data={'luxai2021': ['game/game_constants.json', 'env/rng/rng.js', 'env/rng/seedrandom.js']},
     test_suite='nose2.collector.collector',
     tests_require=['nose2'],
 )
-
-
-if sys.version_info < (3,7) or sys.version_info > (3,7):
-    os.system("")
-    class style():
-        YELLOW = '\033[93m'
-    print(style.YELLOW+"Warning, you are using python" + str(sys.version_info.major) + "." + str(sys.version_info.minor) + ", to submit to kaggle consider switching to python3.7.")
