@@ -1,9 +1,15 @@
+import sys
 from setuptools import setup, find_packages
+
+if sys.version_info < (3,7):
+    sys.exit('Sorry, Python < 3.7 is not supported, upgrade to >=3.7, <3.8')
+
+if sys.version_info > (3,7):
+    sys.exit('Sorry, Python > 3.7 is not supported, downgrade to >=3.7, <3.8')
 
 setup(
     name='luxai2021',
     version='0.1.0',
-    python_requires='>=3.7,<3.8',
     author='Geoff McDonald',
     author_email='glmcdona@gmail.com',
     packages=find_packages(exclude=['tests*']),
