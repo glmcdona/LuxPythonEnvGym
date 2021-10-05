@@ -3,6 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='luxai2021',
     version='0.1.0',
+    python_requires='>=3.7,<3.8',
     author='Geoff McDonald',
     author_email='glmcdona@gmail.com',
     packages=find_packages(exclude=['tests*']),
@@ -15,7 +16,7 @@ setup(
         "stable_baselines3",
         "numpy",
         "tensorboard",
-        "gym"
+        "gym<0.20.0"
     ],
     package_data={'luxai2021': ['game/game_constants.json', 'env/rng/rng.js', 'env/rng/seedrandom.js']},
     test_suite='nose2.collector.collector',
