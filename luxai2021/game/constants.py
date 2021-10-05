@@ -46,38 +46,38 @@ class Constants:
         # Formatted as `m unit_id direction`. unit_id should be valid and should have empty space in that direction. moves
         # unit with id unit_id in the direction
         #
-        MOVE = 'm',
+        MOVE = 'm'
         #
         # Formatted as `r x y`. (x,y) should be an owned city tile, the city tile is commanded to research for
         # the next X turns
         # /
-        RESEARCH = 'r',
+        RESEARCH = 'r'
         # Formatted as `bw x y`. (x,y) should be an owned city tile, where worker is to be built #/
-        BUILD_WORKER = 'bw',
+        BUILD_WORKER = 'bw'
         # Formatted as `bc x y`. (x,y) should be an owned city tile, where the cart is to be built #/
-        BUILD_CART = 'bc',
+        BUILD_CART = 'bc'
         #
         # Formatted as `bcity unit_id`. builds city at unit_id's pos, unit_id should be
         # friendly owned unit that is a worker
         # /
-        BUILD_CITY = 'bcity',
+        BUILD_CITY = 'bcity'
         #
         # Formatted as `t source_unit_id destination_unit_id resource_type amount`. Both units in transfer should be
         # adjacent. If command valid, it will transfer as much as possible with a max of the amount specified
         # /
-        TRANSFER = 't',
+        TRANSFER = 't'
 
         # formatted as `p unit_id`. Unit with the given unit_id must be owned and pillages the tile they are on #/
-        PILLAGE = 'p',
+        PILLAGE = 'p'
 
         # formatted as dc <x> <y> #/
-        DEBUG_ANNOTATE_CIRCLE = 'dc',
+        DEBUG_ANNOTATE_CIRCLE = 'dc'
         # formatted as dx <x> <y> #/
-        DEBUG_ANNOTATE_X = 'dx',
+        DEBUG_ANNOTATE_X = 'dx'
         # formatted as dl <x1> <y1> <x2> <y2> #/
-        DEBUG_ANNOTATE_LINE = 'dl',
+        DEBUG_ANNOTATE_LINE = 'dl'
         # formatted as dt <x> <y> <message> <fontsize> #/
-        DEBUG_ANNOTATE_TEXT = 'dt',
+        DEBUG_ANNOTATE_TEXT = 'dt'
         # formatted as dst <message> #/
         DEBUG_ANNOTATE_SIDETEXT = 'dst'
 
