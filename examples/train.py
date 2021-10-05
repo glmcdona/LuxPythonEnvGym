@@ -1,6 +1,7 @@
 import argparse
 import glob
 import os
+import sys
 import random
 from typing import Callable
 
@@ -14,6 +15,13 @@ from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
+
+if sys.version_info < (3,7) or sys.version_info > (3,7):
+    os.system("")
+    class style():
+        YELLOW = '\033[93m'
+    print(style.YELLOW+"Warning, you are using python" + str(sys.version_info.major) + "." + str(sys.version_info.minor) + ", to submit to kaggle consider switching to python3.7.")
+    sys.exit()
 
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
