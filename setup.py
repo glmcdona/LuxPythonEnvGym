@@ -1,3 +1,5 @@
+import sys
+import os
 from setuptools import setup, find_packages
 
 setup(
@@ -21,3 +23,13 @@ setup(
     test_suite='nose2.collector.collector',
     tests_require=['nose2'],
 )
+
+
+if sys.version_info < (3,7) or sys.version_info >= (3,8):
+    os.system("")
+    class style():
+        YELLOW = '\033[93m'
+    version = str(sys.version_info.major) + "." + str(sys.version_info.minor)
+    message = f'/!\ Warning, python{version} detected, you will need to use python3.7 to submit to kaggle.'
+    message = style.YELLOW + message
+    print(message)
