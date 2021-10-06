@@ -109,106 +109,108 @@ class Game:
 
     def process_updates(self, updates, assign=True):
 
-        if updates is not None:
-            # Loop through updating the game from the list of updates
-            # Implements /kits/python/simple/lux/game.py -> _update()
-            for update in updates:
-                if update == "D_DONE":
-                    break
-                strings = update.split(" ")
+        if updates is None:
+            return
+        
+        # Loop through updating the game from the list of updates
+        # Implements /kits/python/simple/lux/game.py -> _update()
+        for update in updates:
+            if update == "D_DONE":
+                break
+            strings = update.split(" ")
 
-                input_identifier = strings[0]
-                if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
-                    team = int(strings[1])
-                    research_points = int(strings[2])
+            input_identifier = strings[0]
+            if input_identifier == INPUT_CONSTANTS.RESEARCH_POINTS:
+                team = int(strings[1])
+                research_points = int(strings[2])
+                if assign:
+                    self.state["teamStates"][team]["researchPoints"] = research_points
+                else:
+                    assert self.state["teamStates"][team]["researchPoints"] == research_points
+
+                if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
                     if assign:
-                        self.state["teamStates"][team]["researchPoints"] = research_points
+                        self.state["teamStates"][team]["researched"]["coal"] = True
                     else:
-                        assert self.state["teamStates"][team]["researchPoints"] == research_points
+                        assert self.state["teamStates"][team]["researched"]["coal"] == True
 
-                    if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["COAL"]:
-                        if assign:
-                            self.state["teamStates"][team]["researched"]["coal"] = True
-                        else:
-                            assert self.state["teamStates"][team]["researched"]["coal"] == True
-
-                    if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
-                        if assign:
-                            self.state["teamStates"][team]["researched"]["uranium"] = True
-                        else:
-                            assert self.state["teamStates"][team]["researched"]["uranium"] == True
-
-                elif input_identifier == INPUT_CONSTANTS.RESOURCES:
-                    r_type = strings[1]
-                    x = int(strings[2])
-                    y = int(strings[3])
-                    amt = int(float(strings[4]))
+                if int(strings[2]) >= self.configs["parameters"]["RESEARCH_REQUIREMENTS"]["URANIUM"]:
                     if assign:
-                        self.map.add_resource(x, y, r_type, amt)
+                        self.state["teamStates"][team]["researched"]["uranium"] = True
                     else:
-                        cell = self.map.get_cell(x, y)
-                        assert cell.resource.amount == amt
-                        assert cell.resource.type == r_type 
+                        assert self.state["teamStates"][team]["researched"]["uranium"] == True
 
-                elif input_identifier == INPUT_CONSTANTS.UNITS:
-                    unit_type = int(strings[1])
-                    team = int(strings[2])
-                    unit_id = strings[3]
-                    x = int(strings[4])
-                    y = int(strings[5])
-                    cooldown = float(strings[6])
-                    wood = int(strings[7])
-                    coal = int(strings[8])
-                    uranium = int(strings[9])
-                    if assign:
-                        if unit_type == Constants.UNIT_TYPES.WORKER:
-                            self.spawn_worker(team, x, y, unit_id, cooldown=cooldown,
-                                            cargo={"wood": wood, "uranium": uranium, "coal": coal})
-                        elif unit_type == Constants.UNIT_TYPES.CART:
-                            self.spawn_cart(team, x, y, unit_id, cooldown=cooldown,
-                                            cargo={"wood": wood, "uranium": uranium, "coal": coal})
-                    else:
-                        cell = self.map.get_cell(x, y)
-                        assert len(cell.units) > 0
-                        assert unit_id in [u.id for u in cell.units.values()], f'unit id {unit_id} missplaced'
-
-                elif input_identifier == INPUT_CONSTANTS.CITY:
-                    team = int(strings[1])
-                    city_id = strings[2]
-                    fuel = float(strings[3])
-                    light_upkeep = float(strings[4])  # Unused
-                    if assign:
-                        self.cities[city_id] = City(team, self.configs, None, city_id, fuel)
-                    else:
-                        assert city_id in self.cities
-
-                elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
-                    team = int(strings[1])
-                    city_id = strings[2]
-                    x = int(strings[3])
-                    y = int(strings[4])
-                    cooldown = float(strings[5])
-                    city = self.cities[city_id]
+            elif input_identifier == INPUT_CONSTANTS.RESOURCES:
+                r_type = strings[1]
+                x = int(strings[2])
+                y = int(strings[3])
+                amt = int(float(strings[4]))
+                if assign:
+                    self.map.add_resource(x, y, r_type, amt)
+                else:
                     cell = self.map.get_cell(x, y)
-                    if assign:
-                        cell.set_city_tile(team, city_id, cooldown)
-                        city.add_city_tile(cell)
-                        self.stats["teamStats"][team]["cityTilesBuilt"] += 1
-                    else:
-                        assert cell.city_tile.city_id == city_id
-                        assert cell in city.city_cells
+                    assert cell.resource.amount == amt
+                    assert cell.resource.type == r_type 
 
-                elif input_identifier == INPUT_CONSTANTS.ROADS:
-                    x = int(strings[1])
-                    y = int(strings[2])
-                    road = float(strings[3])
+            elif input_identifier == INPUT_CONSTANTS.UNITS:
+                unit_type = int(strings[1])
+                team = int(strings[2])
+                unit_id = strings[3]
+                x = int(strings[4])
+                y = int(strings[5])
+                cooldown = float(strings[6])
+                wood = int(strings[7])
+                coal = int(strings[8])
+                uranium = int(strings[9])
+                if assign:
+                    if unit_type == Constants.UNIT_TYPES.WORKER:
+                        self.spawn_worker(team, x, y, unit_id, cooldown=cooldown,
+                                        cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                    elif unit_type == Constants.UNIT_TYPES.CART:
+                        self.spawn_cart(team, x, y, unit_id, cooldown=cooldown,
+                                        cargo={"wood": wood, "uranium": uranium, "coal": coal})
+                else:
                     cell = self.map.get_cell(x, y)
-                    if cell not in self.cells_with_roads:
-                        self.cells_with_roads.add(cell)
-                    if assign:
-                        cell.road = road
-                    else:
-                        assert cell.get_road() == road
+                    assert len(cell.units) > 0
+                    assert unit_id in [u.id for u in cell.units.values()], f'unit id {unit_id} missplaced'
+
+            elif input_identifier == INPUT_CONSTANTS.CITY:
+                team = int(strings[1])
+                city_id = strings[2]
+                fuel = float(strings[3])
+                light_upkeep = float(strings[4])  # Unused
+                if assign:
+                    self.cities[city_id] = City(team, self.configs, None, city_id, fuel)
+                else:
+                    assert city_id in self.cities
+
+            elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
+                team = int(strings[1])
+                city_id = strings[2]
+                x = int(strings[3])
+                y = int(strings[4])
+                cooldown = float(strings[5])
+                city = self.cities[city_id]
+                cell = self.map.get_cell(x, y)
+                if assign:
+                    cell.set_city_tile(team, city_id, cooldown)
+                    city.add_city_tile(cell)
+                    self.stats["teamStats"][team]["cityTilesBuilt"] += 1
+                else:
+                    assert cell.city_tile.city_id == city_id
+                    assert cell in city.city_cells
+
+            elif input_identifier == INPUT_CONSTANTS.ROADS:
+                x = int(strings[1])
+                y = int(strings[2])
+                road = float(strings[3])
+                cell = self.map.get_cell(x, y)
+                if cell not in self.cells_with_roads:
+                    self.cells_with_roads.add(cell)
+                if assign:
+                    cell.road = road
+                else:
+                    assert cell.get_road() == road
 
     def _gen_initial_accumulated_action_stats(self):
         """
