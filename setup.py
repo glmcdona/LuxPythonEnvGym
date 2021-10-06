@@ -15,7 +15,7 @@ setup(
         "stable_baselines3",
         "numpy",
         "tensorboard",
-        "gym"
+        "gym==0.19.0"
     ],
     package_data={'luxai2021': ['game/game_constants.json', 'env/rng/rng.js', 'env/rng/seedrandom.js']},
     test_suite='nose2.collector.collector',
