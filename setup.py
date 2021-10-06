@@ -14,7 +14,7 @@ setup(
     long_description=open('README.md').read(),
     install_requires=[
         "pytest",
-        "stable_baselines3",
+        "stable_baselines3==1.2.1a2",
         "numpy",
         "tensorboard",
         "gym==0.19.0"
