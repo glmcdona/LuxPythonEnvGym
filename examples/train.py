@@ -109,8 +109,7 @@ def train(args):
     callbacks = []
 
     # Save a checkpoint and 5 match replay files every 100K steps
-    player_replay1 = AgentPolicy(mode="inference", model=model)
-    player_replay2 = AgentPolicy(mode="inference", model=model)
+    player_replay = AgentPolicy(mode="inference", model=model)
     callbacks.append(
         SaveReplayAndModelCallback(
                                 save_freq=100000,
@@ -118,8 +117,8 @@ def train(args):
                                 name_prefix=f'model{run_id}',
                                 replay_env=LuxEnvironment(
                                                 configs=configs,
-                                                learning_agent=player_replay1, # Play against itself
-                                                opponent_agent=player_replay2
+                                                learning_agent=player_replay,
+                                                opponent_agent=Agent()
                                 ),
                                 replay_num_episodes=5
                             )
