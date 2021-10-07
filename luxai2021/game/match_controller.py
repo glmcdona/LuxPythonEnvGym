@@ -62,7 +62,7 @@ class ActionSequence():
         self.citytile = citytile
         self.kwarg = kwarg
     
-    def get_next_action(self):
+    def get_next_action(self, game):
         # Construct the next action. Note: x and y may be wrong since they may have changed
         # TODO: Fix x and y if doing citytile actions or build city action.
         return self.actions.pop(0)(unit_id=self.unit_id, citytile=self.citytile, **self.kwarg)
@@ -144,7 +144,9 @@ class MatchController:
                 sequence = action
                 if sequence.is_done():
                     return
-                action = sequence.get_next_action()
+                action = sequence.get_next_action(self.game)
+                if action == None:
+                    return
 
                 if not sequence.is_done():
                     if sequence.unit_id != None:
@@ -240,7 +242,7 @@ class MatchController:
 
                 if actionable != None and actionable.can_act():
                     # Continue the action sequence for this unit automatically
-                    self.take_action(sequence.get_next_action())
+                    self.take_action(sequence.get_next_action(self.game))
 
                     if sequence.is_done():
                         self.action_sequences.pop(id)

@@ -469,6 +469,8 @@ class GameMap:
         :param y:
         :return:
         """
+        if y >= len(self.map) or x >= len(self.map[0]) or y < 0 or x < 0:
+            return None
         return self.map[y][x]
 
     def get_row(self, y):
@@ -502,6 +504,33 @@ class GameMap:
         # WEST
         if cell.pos.x > 0:
             cells.append(self.get_cell(cell.pos.x - 1, cell.pos.y))
+
+        return cells
+
+    def get_adjacent_cells_with_corners(self, cell):
+        """
+        Includes the corners as 'adjacent'. Used in finding
+        resource clusters.
+        :param cell:
+        :return:
+        """
+        cells = self.get_adjacent_cells(cell)
+
+        c = self.get_cell(cell.pos.x - 1, cell.pos.y - 1)
+        if c:
+            cells.append(c)
+
+        c = self.get_cell(cell.pos.x + 1, cell.pos.y - 1)
+        if c:
+            cells.append(c)
+
+        c = self.get_cell(cell.pos.x - 1, cell.pos.y + 1)
+        if c:
+            cells.append(c)
+
+        c = self.get_cell(cell.pos.x + 1, cell.pos.y + 1)
+        if c:
+            cells.append(c)
 
         return cells
 

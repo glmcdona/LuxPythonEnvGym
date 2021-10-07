@@ -13,7 +13,7 @@ class LuxEnvironment(gym.Env):
     """
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, configs, learning_agent, opponent_agent, replay_validate=None):
+    def __init__(self, configs, learning_agent, opponent_agent, replay_validate=None, replay_folder=None, replay_prefix="replay"):
         """
         THe initializer
         :param configs:
@@ -27,6 +27,10 @@ class LuxEnvironment(gym.Env):
         self.match_controller = MatchController(self.game, 
                                                 agents=[learning_agent, opponent_agent], 
                                                 replay_validate=replay_validate)
+        
+        self.replay_prefix = replay_prefix
+        self.replay_folder = replay_folder
+
 
         self.action_space = []
         if hasattr( learning_agent, 'action_space' ):
@@ -42,6 +46,16 @@ class LuxEnvironment(gym.Env):
         self.match_generator = None
 
         self.last_observation_object = None
+
+    def set_replay_path(self, replay_folder, replay_prefix):
+        """
+        Override the replay prefix
+
+        Args:
+            replay_prefix ([type]):
+        """
+        self.replay_prefix = replay_prefix
+        self.replay_folder = replay_folder
 
     def step(self, action_code):
         """
@@ -93,6 +107,10 @@ class LuxEnvironment(gym.Env):
 
         # Reset game + map
         self.match_controller.reset()
+        if self.replay_folder:
+            # Tell the game to log replays
+            self.game.start_replay_logging(stateful=True, replay_folder=self.replay_folder, replay_filename_prefix=self.replay_prefix)
+
         self.match_generator = self.match_controller.run_to_next_observation()
         (unit, city_tile, team, is_new_turn) = next(self.match_generator)
 

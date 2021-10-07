@@ -14,6 +14,53 @@ from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
+class SaveReplayAndModelCallback(BaseCallback):
+    """
+    Callback for saving a replay of a model every ``save_freq`` calls
+    to ``env.step()``.
+
+    .. warning::
+
+      When using multiple environments, each call to  ``env.step()``
+      will effectively correspond to ``n_envs`` steps.
+      To account for that, you can use ``save_freq = max(save_freq // n_envs, 1)``
+
+    :param save_freq:
+    :param save_path: Path to the folder where the model will be saved.
+    :param name_prefix: Common prefix to the saved models
+    :param verbose:
+    """
+
+    def __init__(self, save_freq: int, save_path: str, replay_env: LuxEnvironment, replay_num_episodes=10, name_prefix: str = "rl_model", verbose: int = 0):
+        super(CheckpointCallback, self).__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+        self.replay_env = replay_env
+        self.replay_num_episodes = replay_num_episodes
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.save_freq == 0:
+            # Save the model
+            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
+            self.model.save(path)
+
+            # Run a bunch of games to creates replays using the replay environment
+            self.replay_env.set_replay_path(f"{self.name_prefix}_{self.num_timesteps}_steps")
+            for i in range(len(self.replay_num_episodes)):
+                self.replay_env.reset()
+                self.replay_env.run_no_learn() # Runs a whole game
+            
+            if self.verbose > 1:
+                print(f"Saved model checkpoint and replay to {path}")
+        return True
+
+
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
     """
@@ -109,9 +156,17 @@ def train(args):
 
     # Save a checkpoint every 100K steps
     callbacks.append(
-        CheckpointCallback(save_freq=100000,
-                            save_path='./models/',
-                            name_prefix=f'rl_model_{run_id}')
+        SaveReplayAndModelCallback(
+                                save_freq=10000,
+                                save_path='./models/',
+                                name_prefix=f'rl_model_{run_id}',
+                                replay_env=LuxEnvironment(
+                                                configs=configs,
+                                                learning_agent=player, # Play against itself
+                                                opponent_agent=player
+                                ),
+                                replay_num_episodes=10
+                            )
     )
     
     # Since reward metrics don't work for multi-environment setups, we add an evaluation logger
