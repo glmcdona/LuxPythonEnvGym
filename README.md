@@ -61,7 +61,7 @@ A gym interface and match controller was created that supports creating custom a
 ```
 import random
 from stable_baselines3 import PPO  # pip install stable-baselines3
-from luxai2021.env.lux_env import LuxEnvironment
+from luxai2021.env.lux_env import LuxEnvironment, SaveReplayAndModelCallback
 from luxai2021.env.agent import Agent, AgentWithModel
 from luxai2021.game.game import Game
 from luxai2021.game.actions import *
@@ -303,12 +303,14 @@ Either view the above kaggle example or prepare a submission yourself:
 **Important:** The model.zip needs to have been trained on Python 3.7.* or you get a deserialization error, since this is the python version that Kaggle Environment uses to inference the model in submission.
 
 ## Creating and viewing a replay
-Place your trained model file as `model.zip` and your agent file `agent_policy.py` in the `./kaggle_submissions/` folder. Then run a command like the following from that directory:
-
-`lux-ai-2021 --seed=100 ./kaggle_submissions/main_lux-ai-2021.py ./kaggle_submissions/main_lux-ai-2021.py --maxtime 100000`
-
-This will battle your agent against itself and produce a replay match. You can view the replay here:
+If you are using the example `train.py` to train your model, replays will be generated and saved along with a copy of the model every 100K steps. By default 5 replay matches will be saved with each model checkpoint into `.\\models\\model(runid)_(step_count)_(rand).json` to monitor your bot's behaviour. You can view the replay here:
 https://2021vis.lux-ai.org/
 
+Alternatively to manually generate a replay from a model, you can place your trained model file as `model.zip` and your agent file `agent_policy.py` in the `./kaggle_submissions/` folder. Then run a command like the following from that directory:
+
+`lux-ai-2021 ./kaggle_submissions/main_lux-ai-2021.py ./kaggle_submissions/main_lux-ai-2021.py --maxtime 100000`
+
+This will battle your agent against itself and produce a replay match. This requires the official `lux-ai-2021` to be installed, see instructions here:
+https://github.com/Lux-AI-Challenge/Lux-Design-2021
 
 

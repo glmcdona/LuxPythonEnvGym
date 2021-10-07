@@ -52,7 +52,7 @@ class Game:
         # Decide on the target file
         filename = f"{replay_filename_prefix}_{random.randint(0,10000)}.json"
 
-        self.replay = Replay( os.path.join(replay_folder, filename), stateful )
+        self.replay = Replay( self, os.path.join(replay_folder, filename), stateful )
         self.replay_stateful = stateful
         self.replay_folder = replay_folder
         self.replay_filename_prefix = replay_filename_prefix
@@ -386,11 +386,10 @@ class Game:
 
         if self.replay:
             # Log actions to a replay
-            commands = []
-            for action in actions:
-                commands.append(action.to_message(self))
-            self.replay.add_actions(commands)
-        
+            self.replay.add_actions(self, actions)
+            
+            
+
         # Loop over commands and validate and map into internal action representations
         actions_map = {}
 
@@ -506,7 +505,7 @@ class Game:
 
         # store state for replays
         if self.replay:
-            self.replay.write_state(self)
+            self.replay.add_state(self)
 
         self.run_cooldowns()
 
@@ -1150,7 +1149,7 @@ class Game:
             "turn": self.state["turn"],
             "globalCityIDCount": self.global_city_id_count,
             "globalunit_idCount": self.global_unit_id_count,
-            "teamStats": {
+            "teamStates": {
                 Constants.TEAM.A: {
                     "researchPoints": 0,
                     "units": {},
@@ -1170,7 +1169,7 @@ class Game:
                     },
                 },
             },
-            map: self.map.to_state_object(),
+            "map": self.map.to_state_object(),
             "cities": cities,
         }
 

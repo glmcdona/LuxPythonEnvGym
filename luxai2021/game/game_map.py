@@ -609,3 +609,25 @@ class GameMap:
                     map_str += ".."
             map_str += "\n"
         return map_str
+
+    def to_state_object(self):
+        """
+        Implements /src/GameMap/index.ts -> toStateObject()
+        """
+        obj = []
+        for y in range(self.height):
+            obj.append([])
+            for x in range(self.width):
+                cell = self.get_cell(x, y);
+                cell_data = {}
+                
+                if cell.get_road() != 0:
+                    cell_data["road"] = cell.get_road()
+                
+                if cell.resource:
+                    cell_data["type"] = cell.resource.type
+                    cell_data["amount"] = cell.resource.amount
+                
+                obj[y].append(cell_data)
+        
+        return obj

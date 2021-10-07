@@ -2,10 +2,65 @@
 Implements the base class for a Lux environment
 """
 import gym
+import os
+from stable_baselines3.common.callbacks import BaseCallback
 
 from ..game.game import Game
 from ..game.match_controller import GameStepFailedException, MatchController
 from ..game.constants import Constants
+
+
+class SaveReplayAndModelCallback(BaseCallback):
+    """
+    Callback for saving a replay of a model every ``save_freq`` calls
+    to ``env.step()``.
+
+    .. warning::
+
+      When using multiple environments, each call to  ``env.step()``
+      will effectively correspond to ``n_envs`` steps.
+      To account for that, you can use ``save_freq = max(save_freq // n_envs, 1)``
+
+    :param save_freq:
+    :param save_path: Path to the folder where the model will be saved.
+    :param name_prefix: Common prefix to the saved models
+    :param verbose:
+    """
+
+    def __init__(self, save_freq: int, save_path: str, replay_env, replay_num_episodes=5, name_prefix: str = "rl_model", verbose: int = 0):
+        super(SaveReplayAndModelCallback, self).__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+        self.replay_env = replay_env
+        self.replay_num_episodes = replay_num_episodes
+        print(f"Logging models and replays to '{self.save_path}'.")
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.save_freq == 0:
+            # Save the model
+            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
+            self.model.save(path)
+
+            # Run a bunch of games to creates replays using the replay environment
+            self.replay_env.set_replay_path(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
+            for i in range(self.replay_num_episodes):
+                try:
+                    self.replay_env.reset() # Runs a whole game because no training agent is attached
+                except:
+                    # Game finished or failed, skip anyway
+                    # Note: This is expected to throw StopIteration, which is a game finish exception.
+                    pass
+                
+            
+            if self.verbose > 1:
+                print(f"Saved model checkpoint and replay to {path}")
+        return True
 
 class LuxEnvironment(gym.Env):
     """
