@@ -1,6 +1,7 @@
 import argparse
 import glob
 import os
+import sys
 import random
 
 from stable_baselines3 import PPO  # pip install stable-baselines3
@@ -187,6 +188,15 @@ def train(args):
 
 
 if __name__ == "__main__":
+    if sys.version_info < (3,7) or sys.version_info >= (3,8):
+        os.system("")
+        class style():
+            YELLOW = '\033[93m'
+        version = str(sys.version_info.major) + "." + str(sys.version_info.minor)
+        message = f'/!\ Warning, python{version} detected, you will need to use python3.7 to submit to kaggle.'
+        message = style.YELLOW + message
+        print(message)
+    
     # Get the command line arguments
     local_args = get_command_line_arguments()
 
