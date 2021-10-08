@@ -11,11 +11,12 @@ class Action:
         self.action = action
         self.team = team
 
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
         :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
         :return: True if it's valid, False otherwise
         """
         return True
@@ -27,6 +28,17 @@ class Action:
         :return: String-serialized action message to send kaggle controller
         """
         raise Exception("NOT IMPLEMENTED")
+    
+    def commit_action_update_stats(self, game, accumulated_stats):
+        """
+        Updates the accumulated_stats with this action having been
+        approved. Used to validate actions that depend on this, eg
+        unit cap being reached from producing workers.
+
+        Args:
+            accumulated_stats ([Dict]): 
+        """
+        return accumulated_stats
 
 
 class MoveAction(Action):
@@ -43,7 +55,7 @@ class MoveAction(Action):
         self.direction = direction
         super().__init__(action, team)
 
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
@@ -124,6 +136,59 @@ class SpawnAction(Action):
         self.y = y
         super().__init__(action, team)
 
+    def commit_action_update_stats(self, game, accumulated_stats):
+        """
+        Updates the accumulated_stats with this action having been
+        approved. Used to validate actions that depend on this, eg
+        unit cap being reached from producing workers.
+
+        Args:
+            accumulated_stats ([Dict]): 
+        """
+        if "unit_count_offset" in accumulated_stats[self.team]:
+            accumulated_stats[self.team]["unit_count_offset"] += 1
+        else:
+            accumulated_stats[self.team]["unit_count_offset"] = 1
+        
+        return accumulated_stats
+    
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
+        """
+        Validates the command.
+        :param game:
+        :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
+        :return: True if it's valid, False otherwise
+        """
+        if self.x is None or self.y is None or self.team is None:
+            return False
+
+        if self.unit_id != None:
+            return False
+
+        if self.y < 0 or self.y >= game.map.height:
+            return False
+        if self.x < 0 or self.x >= game.map.width:
+            return False
+
+        city_tile = game.map.get_cell(self.x, self.y).city_tile
+        if city_tile is None:
+            return False
+
+        if not city_tile.can_build_unit():
+            return False
+
+        # Handles multiple cities building workers in same turn
+        offset = 0
+        if accumulated_stats:
+            if "unit_count_offset" in accumulated_stats[self.team]:
+                offset = accumulated_stats[self.team]["unit_count_offset"]
+        
+        if game.worker_unit_cap_reached(self.team, offset=offset):
+            return False
+
+        return True
+
 
 class SpawnCartAction(SpawnAction):
     def __init__(self, team, unit_id, x, y, **kwarg):
@@ -139,31 +204,6 @@ class SpawnCartAction(SpawnAction):
         self.type = UNIT_TYPES.CART
         super().__init__(action, team, unit_id, x, y)
 
-    def is_valid(self, game, actions_validated):
-        """
-        Validates the command.
-        :param game:
-        :param actions_validated: Other actions that have already been validated for this turn.
-        :return: True if it's valid, False otherwise
-        """
-        if self.x is None or self.y is None or self.team is None:
-            return False
-
-        if self.unit_id != None:
-            return False
-
-        city_tile = game.map.get_cell(self.x, self.y).city_tile
-        if city_tile is None:
-            return False
-
-        if not city_tile.can_build_unit():
-            return False
-
-        # TODO handle multiple units building workers in same turn
-        if game.cart_unit_cap_reached(self.team):
-            return False
-
-        return True
 
     def to_message(self, game) -> str:
         """
@@ -188,37 +228,6 @@ class SpawnWorkerAction(SpawnAction):
         self.type = UNIT_TYPES.WORKER
         super().__init__(action, team, unit_id, x, y)
 
-    def is_valid(self, game, actions_validated):
-        """
-        Validates the command.
-        :param game:
-        :param actions_validated: Other actions that have already been validated for this turn.
-        :return: True if it's valid, False otherwise
-        """
-        if self.x is None or self.y is None or self.team is None:
-            return False
-
-        if self.unit_id != None:
-            return False
-
-        if self.y < 0 or self.y >= game.map.height:
-            return False
-        if self.x < 0 or self.x >= game.map.width:
-            return False
-
-        city_tile = game.map.get_cell(self.x, self.y).city_tile
-        if city_tile is None:
-            return False
-
-        if not city_tile.can_build_unit():
-            return False
-
-        # TODO handle multiple units building workers in same turn
-        if game.worker_unit_cap_reached(self.team):
-            return False
-
-        return True
-
     def to_message(self, game) -> str:
         """
         Converts this action into a text message to send the kaggle controller via StdOut
@@ -240,11 +249,12 @@ class SpawnCityAction(Action):
         self.unit_id = unit_id
         super().__init__(action, team)
 
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
         :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
         :return: True if it's valid, False otherwise
         """
         if self.unit_id is None or self.team is None:
@@ -305,11 +315,12 @@ class TransferAction(Action):
         """
         return "t {} {} {} {}".format(self.source_id, self.destination_id, self.resource_type, self.amount)
     
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
         :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
         :return: True if it's valid, False otherwise
         """
         if self.source_id is None or self.destination_id is None or self.team is None or self.resource_type is None:
@@ -350,11 +361,12 @@ class PillageAction(Action):
         """
         return "p {}".format(self.unit_id)
     
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
         :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
         :return: True if it's valid, False otherwise
         """
         if self.unit_id is None or self.team is None:
@@ -393,11 +405,12 @@ class ResearchAction(Action):
         """
         return "r {} {}".format(self.x, self.y)
     
-    def is_valid(self, game, actions_validated):
+    def is_valid(self, game, actions_validated, accumulated_stats=None):
         """
         Validates the command.
         :param game:
         :param actions_validated: Other actions that have already been validated for this turn.
+        :param accumulated_stats: List of accumulated stats of approved actions to help validate the action.
         :return: True if it's valid, False otherwise
         """
         if self.x is None or self.y is None or self.team is None:

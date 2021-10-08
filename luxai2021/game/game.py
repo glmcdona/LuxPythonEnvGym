@@ -1,3 +1,5 @@
+import os
+from luxai2021.game.replay import Replay
 import math
 import random
 import sys
@@ -25,8 +27,48 @@ class Game:
         self.configs = dict(LuxMatchConfigs_Default) # Shallow copy
         self.configs.update(configs)  # Override default config from specified config
         self.agents = []
+        self.stop_replay_logging()
         self.reset()
         self.log_file = None
+        
+
+    def start_replay_logging(self, stateful=False, replay_folder="./replays/", replay_filename_prefix="replay"):
+        """
+        If replay_folder is not None, it enables saving of replays for every game into
+        the target folder. Naming of each of the game replays is by appending a random number, eg:
+            ./replays/replay_<random num>.json
+            ./replays/replay_<random num>.json
+            ...
+
+        Args:
+            replay_folder (str, optional): [description]. Defaults to "/replays/".
+            replay_filename_prefix: Prefix to the filenames for the replay.
+        """
+
+        # Replays only work if a map seed is specified
+        assert "seed" in self.configs, "Replays only work when a seed is specified."
+        assert self.configs["seed"] is not None, "Replays only work when a seed is specified."
+
+        # Create target folder if needed
+        if not os.path.exists(replay_folder):
+            os.makedirs(replay_folder)
+
+        # Decide on the target file
+        filename = f"{replay_filename_prefix}_{random.randint(0,10000)}.json"
+
+        self.replay = Replay( self, os.path.join(replay_folder, filename), stateful )
+        self.replay_stateful = stateful
+        self.replay_folder = replay_folder
+        self.replay_filename_prefix = replay_filename_prefix
+    
+    def stop_replay_logging(self):
+        """
+        Disables saving of replays at the end of each game.
+        """
+        self.replay = None
+        self.replay_stateful = None
+        self.replay_folder = None
+        self.replay_filename_prefix = None
 
     def reset(self, updates=None, increment_turn=False):
         """
@@ -104,6 +146,10 @@ class Game:
         # Generate the map
         self.map = GameMap(self.configs)
         self.map.generate_map(self)
+
+        if self.replay:
+            # Clear the replay log without writing
+            self.replay.clear(self)
 
         self.process_updates(updates)
 
@@ -348,6 +394,12 @@ class Game:
         if "log" in self.configs and self.configs["log"]:
             self.log('Processing turn ' + self.game.state["turn"])
 
+        if self.replay:
+            # Log actions to a replay
+            self.replay.add_actions(self, actions)
+            
+            
+
         # Loop over commands and validate and map into internal action representations
         actions_map = {}
 
@@ -461,16 +513,19 @@ class Game:
 
         self.state["turn"] += 1
 
-        # store state
-        # TODO: IMPLEMENT THIS
-        # if (self.replay.statefulReplay):
-        #    self.replay.writeState(self)
+        # store state for replays
+        if self.replay:
+            self.replay.add_state(self)
 
         self.run_cooldowns()
 
         if match_over:
-            # if (self.replay):
-            #    self.replay.writeOut(self.getResults(match))
+            if self.replay:
+                # Write the replay to a file
+                self.replay.write(self)
+
+                # Start a new replay file for the next game
+                self.start_replay_logging(self.replay_stateful, self.replay_folder, self.replay_filename_prefix)
             return True
 
         # self.log('Beginning turn %s' % self.state["turn"])
@@ -1104,7 +1159,7 @@ class Game:
             "turn": self.state["turn"],
             "globalCityIDCount": self.global_city_id_count,
             "globalunit_idCount": self.global_unit_id_count,
-            "teamStats": {
+            "teamStates": {
                 Constants.TEAM.A: {
                     "researchPoints": 0,
                     "units": {},
@@ -1124,7 +1179,7 @@ class Game:
                     },
                 },
             },
-            map: self.map.to_state_object(),
+            "map": self.map.to_state_object(),
             "cities": cities,
         }
 

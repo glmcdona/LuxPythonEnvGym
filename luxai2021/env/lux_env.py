@@ -1,11 +1,74 @@
 """
 Implements the base class for a Lux environment
 """
+import traceback
 import gym
+import os
+from stable_baselines3.common.callbacks import BaseCallback
 
 from ..game.game import Game
 from ..game.match_controller import GameStepFailedException, MatchController
 from ..game.constants import Constants
+
+
+class SaveReplayAndModelCallback(BaseCallback):
+    """
+    Callback for saving a replay of a model every ``save_freq`` calls
+    to ``env.step()``.
+
+    .. warning::
+
+      When using multiple environments, each call to  ``env.step()``
+      will effectively correspond to ``n_envs`` steps.
+      To account for that, you can use ``save_freq = max(save_freq // n_envs, 1)``
+
+    :param save_freq:
+    :param save_path: Path to the folder where the model will be saved.
+    :param name_prefix: Common prefix to the saved models
+    :param verbose:
+    """
+
+    def __init__(self, save_freq: int, save_path: str, replay_env, replay_num_episodes=5, name_prefix: str = "rl_model", verbose: int = 0):
+        super(SaveReplayAndModelCallback, self).__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+        self.replay_env = replay_env
+        self.replay_num_episodes = replay_num_episodes
+        print(f"Logging models and replays to '{self.save_path}'.")
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.save_freq == 0:
+            # Save the model
+            path = os.path.join(self.save_path, f"{self.name_prefix}_step{self.num_timesteps}")
+            self.model.save(path)
+            
+            # Run a bunch of games to creates replays using the replay environment
+            for i in range(self.replay_num_episodes):
+                self.replay_env.game.configs["seed"] = i
+                self.replay_env.set_replay_path(self.save_path, f"{self.name_prefix}_step{self.num_timesteps}_seed{i}")
+
+                try:
+                    self.replay_env.reset() # Runs  a whole game because no training agent is attached
+                except StopIteration:
+                    # Game finished successfully
+                    pass
+                except Exception as e:
+                    # Failure
+                    print("Replay environment failed.")
+                    print(repr(e))
+                    print(''.join(traceback.format_exception(None, e, e.__traceback__)))
+                    pass
+                
+            
+            if self.verbose > 1:
+                print(f"Saved model checkpoint and replay to {path}")
+        return True
 
 class LuxEnvironment(gym.Env):
     """
@@ -13,7 +76,7 @@ class LuxEnvironment(gym.Env):
     """
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, configs, learning_agent, opponent_agent, replay_validate=None):
+    def __init__(self, configs, learning_agent, opponent_agent, replay_validate=None, replay_folder=None, replay_prefix="replay"):
         """
         THe initializer
         :param configs:
@@ -27,6 +90,10 @@ class LuxEnvironment(gym.Env):
         self.match_controller = MatchController(self.game, 
                                                 agents=[learning_agent, opponent_agent], 
                                                 replay_validate=replay_validate)
+        
+        self.replay_prefix = replay_prefix
+        self.replay_folder = replay_folder
+
 
         self.action_space = []
         if hasattr( learning_agent, 'action_space' ):
@@ -42,6 +109,16 @@ class LuxEnvironment(gym.Env):
         self.match_generator = None
 
         self.last_observation_object = None
+
+    def set_replay_path(self, replay_folder, replay_prefix):
+        """
+        Override the replay prefix
+
+        Args:
+            replay_prefix ([type]):
+        """
+        self.replay_prefix = replay_prefix
+        self.replay_folder = replay_folder
 
     def step(self, action_code):
         """
@@ -93,6 +170,10 @@ class LuxEnvironment(gym.Env):
 
         # Reset game + map
         self.match_controller.reset()
+        if self.replay_folder:
+            # Tell the game to log replays
+            self.game.start_replay_logging(stateful=True, replay_folder=self.replay_folder, replay_filename_prefix=self.replay_prefix)
+
         self.match_generator = self.match_controller.run_to_next_observation()
         (unit, city_tile, team, is_new_turn) = next(self.match_generator)
 
