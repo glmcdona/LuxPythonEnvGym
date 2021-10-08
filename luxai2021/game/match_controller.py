@@ -128,6 +128,7 @@ class MatchController:
         if reset_game:
             self.game.reset()
         self.action_buffer = []
+        self.accumulated_stats = dict( {Constants.TEAM.A: {}, Constants.TEAM.B: {}} )
 
         # Call the agent game_start() callbacks
         for agent in self.agents:
@@ -156,9 +157,10 @@ class MatchController:
 
             # Validate the action
             try:
-                if action.is_valid(self.game, self.action_buffer):
+                if action.is_valid(self.game, self.action_buffer, self.accumulated_stats):
                     # Add the action
                     self.action_buffer.append(action)
+                    self.accumulated_stats = action.commit_action_update_stats(self.game, self.accumulated_stats)
                 else:
                     #print(f'action is invalid {action} turn {self.game.state["turn"]}: {vars(action)}', file=sys.stderr)
                     pass
@@ -301,6 +303,7 @@ class MatchController:
             # Now let the game actually process the requested actions and play the turn
             try:
                 # Run post-turn agent events to allow for them to handle running the turn instead (used in a kaggle submission agent)
+                self.accumulated_stats = dict( {Constants.TEAM.A: {}, Constants.TEAM.B: {}} )
                 handled = False
                 for agent in self.agents:
                     if agent.post_turn(self.game, self.action_buffer):

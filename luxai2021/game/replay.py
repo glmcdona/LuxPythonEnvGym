@@ -19,10 +19,14 @@ class Replay:
             stateful (bool, optional): [description]. Defaults to False.
         """
         self.replayFilePath = None
+        self.file = file
+        self.stateful = stateful
+        self.clear(game)
+    
+    
+    def clear(self, game):
         self.data = {
             'seed' : 0,
-            'width' : game.map.width,
-            'height' : game.map.height,
             'mapType' :  Constants.MAP_TYPES.RANDOM,
             'teamDetails' : [{"name":"Agent0","tournamentID":""},{"name":"Agent1","tournamentID":""}],
             'allCommands' : [], # Array<Array<str>>;
@@ -31,9 +35,6 @@ class Replay:
         }
         if "seed" in game.configs:
             self.data["seed"] = game.configs["seed"]
-        self.file = file
-        
-        self.stateful = stateful
         if self.stateful:
             self.data['stateful'] = [] #Array<SerializedState>;
 
@@ -67,10 +68,13 @@ class Replay:
             state = game.to_state_object()
             self.data['stateful'].append(state)
     
-    def write(self) -> None:
+    def write(self, game) -> None:
         """
         Write this replay to the specified target file.
         """
+        self.data['width'] = game.map.width
+        self.data['height'] = game.map.height
+
         with open(self.file, "w") as o:
             # Write the replay file
             json.dump(self.data, o)

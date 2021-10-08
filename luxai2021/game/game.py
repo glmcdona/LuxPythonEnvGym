@@ -147,6 +147,10 @@ class Game:
         self.map = GameMap(self.configs)
         self.map.generate_map(self)
 
+        if self.replay:
+            # Clear the replay log without writing
+            self.replay.clear(self)
+
         self.process_updates(updates)
 
     def process_updates(self, updates, assign=True):
@@ -518,7 +522,7 @@ class Game:
         if match_over:
             if self.replay:
                 # Write the replay to a file
-                self.replay.write()
+                self.replay.write(self)
 
                 # Start a new replay file for the next game
                 self.start_replay_logging(self.replay_stateful, self.replay_folder, self.replay_filename_prefix)
