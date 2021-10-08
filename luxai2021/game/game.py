@@ -45,6 +45,10 @@ class Game:
             replay_filename_prefix: Prefix to the filenames for the replay.
         """
 
+        # Replays only work if a map seed is specified
+        assert "seed" in self.configs, "Replays only work when a seed is specified."
+        assert self.configs["seed"] is not None, "Replays only work when a seed is specified."
+
         # Create target folder if needed
         if not os.path.exists(replay_folder):
             os.makedirs(replay_folder)

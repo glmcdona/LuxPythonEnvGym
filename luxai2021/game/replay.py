@@ -29,6 +29,8 @@ class Replay:
             'version' : "3.1.0", #string;
             "results":{"ranks":[{"rank":1,"agentID":0},{"rank":2,"agentID":1}],"replayFile":"replays\\1632799860645_ADAt9Ktkv2za.json"},
         }
+        if "seed" in game.configs:
+            self.data["seed"] = game.configs["seed"]
         self.file = file
         
         self.stateful = stateful

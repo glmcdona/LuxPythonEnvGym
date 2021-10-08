@@ -1,6 +1,7 @@
 """
 Implements the base class for a Lux environment
 """
+import traceback
 import gym
 import os
 from stable_baselines3.common.callbacks import BaseCallback
@@ -44,17 +45,24 @@ class SaveReplayAndModelCallback(BaseCallback):
     def _on_step(self) -> bool:
         if self.n_calls % self.save_freq == 0:
             # Save the model
-            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
+            path = os.path.join(self.save_path, f"{self.name_prefix}_step{self.num_timesteps}")
             self.model.save(path)
-
+            
             # Run a bunch of games to creates replays using the replay environment
-            self.replay_env.set_replay_path(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
             for i in range(self.replay_num_episodes):
+                self.replay_env.game.configs["seed"] = i
+                self.replay_env.set_replay_path(self.save_path, f"{self.name_prefix}_step{self.num_timesteps}_seed{i}")
+
                 try:
-                    self.replay_env.reset() # Runs a whole game because no training agent is attached
-                except:
-                    # Game finished or failed, skip anyway
-                    # Note: This is expected to throw StopIteration, which is a game finish exception.
+                    self.replay_env.reset() # Runs  a whole game because no training agent is attached
+                except StopIteration:
+                    # Game finished successfully
+                    pass
+                except Exception as e:
+                    # Failure
+                    print("Replay environment failed.")
+                    print(repr(e))
+                    print(''.join(traceback.format_exception(None, e, e.__traceback__)))
                     pass
                 
             
