@@ -80,6 +80,10 @@ class MoveAction(Action):
 
         # Basic unit collision check
         target_cell = game.map.get_cell_by_pos(new_pos)
+        if target_cell.is_city_tile() and target_cell.city_tile.team != unit.team:
+            # collision with opponent city tile
+            return False
+
         if not target_cell.is_city_tile():
             # Get units adjacent to target. Ignore opponents, because they might move.
             adjacent_cells = game.map.get_adjacent_cells(target_cell)
