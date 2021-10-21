@@ -8,6 +8,7 @@ import traceback
 from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, \
     ResearchAction, TransferAction
 from .city import City
+from .position import Position
 from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
 from .unit import Worker, Cart
@@ -650,6 +651,7 @@ class Game:
         if accumulated_action_stats is None:
             accumulated_action_stats = self._gen_initial_accumulated_action_stats()
 
+        acc = accumulated_action_stats[cmd.team]
         # TODO: IMPLEMENT THIS
         if isinstance(cmd, SpawnCityAction):
             unit = self.get_unit(cmd.team, cmd.unit_id)
@@ -669,9 +671,52 @@ class Game:
             
             if cargoTotal < self.configs['parameters']['CITY_BUILD_COST']:
                 raise MatchWarn("Agent tried to build CityTile with insufficient materials wood + coal + uranium: {}".format(cargoTotal))
-                
-                
-        return cmd
+        elif isinstance(cmd, MoveAction):
+            unit = self.get_unit(cmd.team, cmd.unit_id)
+            if unit is None:
+                raise MatchWarn("Agent tried to move unit {} that it does not own".format(cmd.unit_id))
+            if not unit.can_move():
+                raise MatchWarn("Agent tried to move unit {} with cooldown: {}".format(cmd.unit_id, unit.cooldown))
+            if not cmd.direction in [ Constants.DIRECTIONS.CENTER,
+                                     Constants.DIRECTIONS.EAST,
+                                     Constants.DIRECTIONS.NORTH,
+                                     Constants.DIRECTIONS.SOUTH,
+                                     Constants.DIRECTIONS.WEST ]:
+                raise MatchWarn("Agent tried to move unit {} in invalid direction {}".format(cmd.unit_id, cmd.direction))
+            if cmd.direction != Constants.DIRECTIONS.CENTER:
+                new_pos = unit.pos.translate(cmd.direction, 1)
+                if not self.map.in_map(new_pos):
+                    raise MatchWarn("Agent tried to move unit {} off map".format(cmd.unit_id))
+                if self.map.get_cell_by_pos(new_pos).is_city_tile() and self.map.get_cell_by_pos(new_pos).city_tile.team != cmd.team:
+                        raise MatchWarn("Agent tried to move unit {} onto opponent CityTile".format(cmd.unit_id))
+        elif isinstance(cmd, SpawnWorkerAction) or isinstance(cmd, SpawnCartAction):
+            if not self.map.in_map(Position(cmd.x, cmd.y)):
+                raise MatchWarn("Agent tried to build unit with invalid coordinates")
+            cell = self.map.get_cell(cmd.x, cmd.y)
+            if (not cell.is_city_tile()) ^ (cell.city_tile.team != cmd.team):
+                raise MatchWarn("Agent tried to build unit on tile ({}, {}) that it does not own".format(cmd.x, cmd.y))
+            city_tile = cell.city_tile
+            if not city_tile.can_build_unit():
+                raise MatchWarn("Agent tried to build unit on tile ({}, {}) but CityTile still with cooldown of {}".format(cmd.x, cmd.y, city_tile.cooldown))
+            if isinstance(cmd, SpawnCartAction):
+                if self.cart_unit_cap_reached(cmd.team, acc['cartsBuilt'] + acc['workersBuilt']):
+                    raise MatchWarn("Agent tried to build cart on tile ({}, {}) but unit cap reached. Build more CityTiles!".format(cmd.x, cmd.y))
+            else: # SpawnWorkerAction
+                if self.worker_unit_cap_reached(cmd.team, acc['cartsBuilt'] + acc['workersBuilt']):
+                    raise MatchWarn("Agent tried to build worker on tile ({}, {}) but unit cap reached. Build more CityTiles!".format(cmd.x, cmd.y))
+            
+            acc['actionsPlaced'].add(city_tile.get_tile_id())
+            if isinstance(cmd, SpawnCartAction):
+                acc['cartsBuilt'] += 1
+                return cmd
+            else:
+                acc['workersBuilt'] += 1
+                return cmd
+        
+            
+        else:        
+            # no check. bad.
+            return cmd
 
     def worker_unit_cap_reached(self, team, offset=0):
         """
