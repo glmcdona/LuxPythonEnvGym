@@ -15,6 +15,8 @@ from .unit import Worker, Cart
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 
+class MatchWarn(Exception):
+    pass
 
 class Game:
     def __init__(self, configs=None, agents=[]):
@@ -392,7 +394,7 @@ class Game:
             False if game is over
         """
         if "log" in self.configs and self.configs["log"]:
-            self.log('Processing turn ' + self.game.state["turn"])
+            self.log('Processing turn ' + str(self.state["turn"]))
 
         if self.replay:
             # Log actions to a replay
@@ -649,6 +651,26 @@ class Game:
             accumulated_action_stats = self._gen_initial_accumulated_action_stats()
 
         # TODO: IMPLEMENT THIS
+        if isinstance(cmd, SpawnCityAction):
+            unit = self.get_unit(cmd.team, cmd.unit_id)
+            if unit is None:
+                raise MatchWarn("Agent tried to build CityTile with invalid/unowned unit id: {}".format(cmd.unit_id))
+            cell = self.map.get_cell_by_pos(unit.pos)
+            
+            if cell.is_city_tile():
+                raise MatchWarn("Agent tried to build CityTile on existing CityTile")
+                
+            if cell.has_resource():
+                raise MatchWarn("Agent tried to build CityTile on non-empty resource tile")
+            if not unit.can_act():
+                raise MatchWarn("Agent tried to build CityTile with cooldown: {}".format(unit.cooldown))
+                
+            cargoTotal = unit.cargo['wood'] + unit.cargo['coal']+ unit.cargo['uranium']
+            
+            if cargoTotal < self.configs['parameters']['CITY_BUILD_COST']:
+                raise MatchWarn("Agent tried to build CityTile with insufficient materials wood + coal + uranium: {}".format(cargoTotal))
+                
+                
         return cmd
 
     def worker_unit_cap_reached(self, team, offset=0):
