@@ -671,6 +671,8 @@ class Game:
             
             if cargoTotal < self.configs['parameters']['CITY_BUILD_COST']:
                 raise MatchWarn("Agent tried to build CityTile with insufficient materials wood + coal + uranium: {}".format(cargoTotal))
+            acc['actionsPlaced'].add(cmd.unit_id)
+            return cmd
         elif isinstance(cmd, MoveAction):
             unit = self.get_unit(cmd.team, cmd.unit_id)
             if unit is None:
@@ -689,6 +691,8 @@ class Game:
                     raise MatchWarn("Agent tried to move unit {} off map".format(cmd.unit_id))
                 if self.map.get_cell_by_pos(new_pos).is_city_tile() and self.map.get_cell_by_pos(new_pos).city_tile.team != cmd.team:
                         raise MatchWarn("Agent tried to move unit {} onto opponent CityTile".format(cmd.unit_id))
+            acc['actionsPlaced'].add(cmd.unit_id)
+            return cmd
         elif isinstance(cmd, SpawnWorkerAction) or isinstance(cmd, SpawnCartAction):
             if not self.map.in_map(Position(cmd.x, cmd.y)):
                 raise MatchWarn("Agent tried to build unit with invalid coordinates")
