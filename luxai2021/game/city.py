@@ -70,7 +70,7 @@ class CityTile(Actionable):
 
         :return:
         """
-        return f"{{self.city_id}}_{{self.pos.x}}_{{self.pos.y}}"
+        return f"{self.city_id}_{self.pos.x}_{self.pos.y}"
 
     def can_build_unit(self):
         """
