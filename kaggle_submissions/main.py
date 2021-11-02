@@ -72,8 +72,11 @@ def python_policy_agent(observation, configuration):
         observation["updates"][0] = f"{observation.player}"
     
     # print observations to agent
-    agent_process.stdin.write(("\n".join(observation["updates"]) + "\n").encode())
-    agent_process.stdin.flush()
+    try:
+        agent_process.stdin.write(("\n".join(observation["updates"]) + "\n").encode())
+        agent_process.stdin.flush()
+    except (BrokenPipeError, IOError):
+        pass
 
     # wait for data written to stdout
     agent1res = (agent_process.stdout.readline()).decode()
